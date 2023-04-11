@@ -16,4 +16,18 @@ lab7:
 	POP {lr}	  ; Restore lr from stack
 	mov pc, lr
 
+printBoard:
+	; Board is 23 characters wide, displayed edge to displayed edge
+	; Board is 19 characters high, 18 characters edge to edge
+
+	; Clear the screen
+
+	; Print the score string and current score
+
+	; Print the upper boundry
+
+	; Print the side walls
+
+	; Print the lower boundry
+
 	.end
