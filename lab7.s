@@ -36,4 +36,15 @@ mainloop:
 	POP {lr}	  ; Restore lr from stack
 	mov pc, lr
 
+printBoard:
+	; Screen size is 23x19, board edges are 23x18, inner board is 21x16
+
+	; Print the score string and score value
+
+	; Print the upper boarder
+
+	; Print the side walls
+
+	; Print the lower boarder
+	
 	.end
