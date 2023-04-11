@@ -17,8 +17,8 @@ lab7:
 	mov pc, lr
 
 printBoard:
-	; Board is 23 characters wide, displayed edge to displayed edge
-	; Board is 19 characters high, 18 characters edge to edge
+	; Board is 23 characters wide, displayed edge to displayed edge, interior is 21
+	; Board is 19 characters high, 18 characters edge to edge, interior is 17
 
 	; Clear the screen
 
