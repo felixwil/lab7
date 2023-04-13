@@ -119,10 +119,19 @@ printBottom:
 
 ; Prints the set amount of blocks in random colors
 displayBricks:
+	PUSH {lr, r4-r11}
 	; Get the brick state
+	mov r0, ptr_to_brickState
+	LDW r4, r0				; Loads brickState into r4
 
 	; Loop over first 28 bits
+	MOV r5, #0				; Set bit position to be 0
+	MOV r6, #1				; Create a mask
 	; Check bit value
+	AND r7, r5, r6
+	LSR r4
+	CMP r7, r6
+
 
 	; If 1, generate random color value
 
