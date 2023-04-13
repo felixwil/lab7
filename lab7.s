@@ -6,8 +6,9 @@
 	.global output_character
 	.global output_string
 
-beginColorEscape: 	.string 27, "[3", 0
-endColorEscape:   	.string ";1;1m", 0
+beginColorEscape: .string 27, "[3", 0
+beginBackgroundEscape: .string 27, "[4", 0
+endColorEscape:   .string ";1;1m", 0
 resetColorString:   .string 27, "[0m", 0
 brickState:  		.word 0x0
 xDelta:  			.byte 0xFF
@@ -47,12 +48,11 @@ lab7:
 	BL uart_init
 
 	MOV r0, #6 ; set color to blue
-	BL setColor
+	BL setBackground
 	MOV r0, #0x6f
 	BL output_character
 
 	BL resetColor
-
 
 		; Your code is placed here.
  		; Sample test code starts here
@@ -156,6 +156,24 @@ setColor:
 
 	PUSH {r0}
 	ldr r0, ptr_to_beginColorEscape
+	BL output_string
+	POP {r0}
+	ADD r0, r0, #0x30
+	BL output_character
+	PUSH {r0}
+	ldr r0, ptr_to_endColorEscape
+	BL output_string
+	POP {r0}
+	SUB r0, r0, #0x30
+
+	POP  {lr, r4-r11}	  ; Restore lr from stack
+	mov pc, lr
+
+setBackground:
+	PUSH {lr, r4-r11}
+
+	PUSH {r0}
+	ldr r0, ptr_to_beginBackgroundEscape
 	BL output_string
 	POP {r0}
 	ADD r0, r0, #0x30
