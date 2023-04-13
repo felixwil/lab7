@@ -103,7 +103,7 @@ uart_init:
         mov pc, lr
 
 output_character:
-        PUSH {lr, r7, r8}   ; Store register lr on stack
+        PUSH {lr, r4-r11}   ; Store register lr on stack
 
 checkdisplay:
         MOV r7, #0xC018 ; r7 = checkaddr
@@ -117,7 +117,7 @@ checkdisplay:
         MOVT r8, #0x4000
         STRB r0, [r8] ; (r8 = 0x4000C000)[0] = r0
 
-        POP {lr, r7, r8}
+        POP {lr, r4-r11}
         mov pc, lr
 
 output_string:
