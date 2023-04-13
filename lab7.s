@@ -7,8 +7,8 @@
 	.global output_string
 
 ; Variables or items stored to memory
-beginColorEscape: .string "[3", 0
-endColorEscape:   .string ";1;1m", 0
+beginColorEscape: 	.string "[3", 0
+endColorEscape:   	.string ";1;1m", 0
 brickState:  		.word 0x0
 xDelta:  			.byte 0xFF
 yDelta: 			.byte 0x00
@@ -75,6 +75,9 @@ printBoard:
 
 	POP {lr, r4-r11}
 	mov pc, lr
+
+; Moves the cursor to the input x and y positions (r0=x, r1=y)
+positionCursor:
 
 ; Prints the set amount of blocks in random colors
 displayBricks:
