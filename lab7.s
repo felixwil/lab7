@@ -6,9 +6,9 @@
 	.global output_character
 	.global output_string
 
-beginColorEscape: .string 27, "[3", 0
+beginColorEscape: 	.string 27, "[3", 0
 beginBackgroundEscape: .string 27, "[4", 0
-endColorEscape:   .string ";1;1m", 0
+endColorEscape:   	.string ";1;1m", 0
 resetColorString:   .string 27, "[0m", 0
 brickState:  		.word 0x0
 xDelta:  			.byte 0xFF
@@ -47,9 +47,22 @@ lab7:
 
 	BL uart_init
 
-	MOV r0, #6 ; set color to blue
+	MOV r0, #0xc
+	BL output_character
+
+	MOV r0, #0x2
+	BL output_character
+
+	MOV r1, #0x3
+	BL setCursorxy
+
+	MOV r0, #2 ; set color to yellow
 	BL setBackground
-	MOV r0, #0x6f
+	MOV r0, #0x20
+	BL output_character
+	MOV r0, #0x20
+	BL output_character
+	MOV r0, #0x20
 	BL output_character
 
 	BL resetColor
@@ -63,6 +76,42 @@ mainloop:
 
 
 	POP {lr}	  ; Restore lr from stack
+	mov pc, lr
+
+escapeSequence:
+	PUSH {lr}
+
+	MOV r0, #27
+	BL output_character
+	MOV r0, #0x5B
+	BL output_character
+
+	POP {pc}
+
+setCursorxy:
+	PUSH{lr, r4-r11}
+
+	MOV r4, r0 ; x C 0x43
+	MOV r5, r1 ; y B 0x42
+	BL escapeSequence
+	MOV r0, #0x48
+	BL output_character
+
+	BL escapeSequence
+	ADD r4, r4, #0x30
+	MOV r0, r4
+	BL output_character
+	MOV r0, #0x43 ; column shift for x
+	BL output_character
+
+	BL escapeSequence
+	ADD r5, r5, #0x30
+	MOV r0, r5
+	BL output_character
+	MOV r0, #0x42 ; row shift for y
+	BL output_character
+
+	POP {lr, r4-r11}
 	mov pc, lr
 
 printBoard:
