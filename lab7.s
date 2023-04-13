@@ -20,7 +20,7 @@ ballColor:  		.byte 0x00
 lives:  			.byte 0x04
 level:  			.byte 0x01
 pauseState:  		.byte 0x00
-scoreString:		.string "Score:", 0
+scoreString:		.string "Score: ", 0
 topBottomBorder:	.string "+---------------------+"
 
 ; Pointers to memory locations
@@ -39,8 +39,7 @@ ptr_to_level:					.word level
 ptr_to_pauseState:				.word pauseState
 ptr_to_scoreString:				.word scoreString
 ptr_to_topBottomBorder:			.word topBottomBorder
-
-ptr_to_resetColorString:   .word resetColorString
+ptr_to_resetColorString:   		.word resetColorString
 
 lab7:
 	PUSH {lr}   ; Store lr to stack
@@ -54,8 +53,6 @@ lab7:
 
 	BL resetColor
 
-	ldr r0, ptr_to_welcomestring
-	BL output_string
 
 		; Your code is placed here.
  		; Sample test code starts here
@@ -73,18 +70,52 @@ printBoard:
 	PUSH{lr, r4-r11}
 
 	; Print the score string and score value
+	MOV r0, #6
+	MOV r1, #-1
+	BL setCursorxy				; Set cursor to correct position
+	LDR r0, ptr_to_scoreString
+	BL output_string			; Print "Score: "
+	LDR r0, ptr_to_score
+	LDRW r0, [r0]				; Load score
+	BL int2string				; Convert score to string
+	BL output_string			; Output the score
 
 	; Print the upper boarder
+	MOV r0, #0
+	MOV r0, #0
+	BL setCursorxy				; Set cursor to beginning of second line
+	LDR r0, ptr_to_topBottomBorder
+	BL output_string			; Print the border
 
 	; Print the side walls
+	MOV r4, #1					; Variable to track row number
+	MOV r5, #0x7C				; Vertical line
+printWalls:
+	MOV r0, #0
+	MOV r0, r4
+	BL setCursorxy				; Set the cursor position, (0, row)
+	MOV r0, r5
+	BL output_character			; Set character to print to be "|", then output it
+	MOV r0, #22
+	MOV r0, r4
+	BL setCursorxy				; Set the cursor position, (22, row)
+	MOV r0, r5
+	BL output_character			; Set character to print to be "|", then output it
+	ADD r4, r4, #1				; Increment row
+	CMP r4, #17
+	BEQ printBottom
+	B printWalls				; If 16 rows printed, jump to next section, otherwise keep making the walls
 
+printBottom:
 	; Print the lower boarder
+	MOV r0, #0
+	MOV r0, #17
+	BL setCursorxy				; Set cursor to beginning of second line
+	LDR r0, ptr_to_topBottomBorder
+	BL output_string			; Print the border
 
 	POP {lr, r4-r11}
 	mov pc, lr
-
-; Moves the cursor to the input x and y positions (r0=x, r1=y)
-positionCursor:
 
 ; Prints the set amount of blocks in random colors
 displayBricks:
