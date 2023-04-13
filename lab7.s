@@ -6,13 +6,10 @@
 	.global output_character
 	.global output_string
 
-welcomestring: .string "welcome!", 0
 beginColorEscape: .string 27, "[3", 0
 endColorEscape:   .string ";1;1m", 0
 resetColorString:   .string 27, "[0m", 0
-ptr_to_beginColorEscape: .word beginColorEscape
-ptr_to_endColorEscape: .word endColorEscape
-ptr_to_welcomestring: .word welcomestring
+
 brickState:  		.word 0x0
 xDelta:  			.byte 0xFF
 yDelta: 			.byte 0x00
@@ -24,6 +21,25 @@ ballColor:  		.byte 0x00
 lives:  			.byte 0x04
 level:  			.byte 0x01
 pauseState:  		.byte 0x00
+scoreString:		.string "Score:", 0
+topBottomBorder:	.string "+---------------------+"
+
+; Pointers to memory locations
+ptr_to_beginColorEscape:		.word beginColorEscape
+ptr_to_endColorEscape:			.word endColorEscape
+ptr_to_brickState:				.word brickState
+ptr_to_xDelta:					.word xDelta
+ptr_to_yDelta:					.word yDelta
+ptr_to_score:					.word score
+ptr_to_ballxPosition:			.word ballxPosition
+ptr_to_ballyPosition:			.word ballyPosition
+ptr_to_paddlePosition:			.word paddlePosition
+ptr_to_ballColor:				.word ballColor
+ptr_to_lives:  					.word lives
+ptr_to_level:					.word level
+ptr_to_pauseState:				.word pauseState
+ptr_to_scoreString:				.word scoreString
+ptr_to_topBottomBorder:			.word topBottomBorder
 
 ptr_to_resetColorString:   .word resetColorString
 
@@ -55,10 +71,31 @@ mainloop:
 
 printBoard:
 	; Screen size is 23x19, board edges are 23x18, inner board is 21x16
+	PUSH{lr, r4-r11}
 
 	; Print the score string and score value
 
 	; Print the upper boarder
+
+	; Print the side walls
+
+	; Print the lower boarder
+
+	POP {lr, r4-r11}
+	mov pc, lr
+
+; Prints the set amount of blocks in random colors
+displayBricks:
+	; Get the brick state
+
+	; Loop over first 28 bits
+	; Check bit value
+
+	; If 1, generate random color value
+
+	; Display brick
+
+	; Jump back to loop
 
 ; return true/false if ball is touching a brick
 btouchBrick:
