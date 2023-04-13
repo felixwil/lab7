@@ -51,7 +51,6 @@ printBoard:
 
 	; Print the upper boarder
 
-<<<<<<< HEAD
 ; return true/false if ball is touching a brick
 btouchBrick:
 	PUSH {lr, r4-r11}
@@ -103,9 +102,8 @@ levelClear:
 	PUSH {lr, r4-r11}
 	POP  {lr, r4-r11}	  ; Restore lr from stack
 	mov pc, lr
-=======
+
 	; Print the side walls
->>>>>>> b775a3d63818cdf3b3f527b0dd6a88fde4eb99d9
 
 	; Print the lower boarder
 	
