@@ -102,25 +102,42 @@ uart_init:
         POP {lr, r0, r1}
         mov pc, lr
 
+output_character:
+        PUSH {lr, r7, r8}   ; Store register lr on stack
+
+checkdisplay:
+        MOV r7, #0xC018 ; r7 = checkaddr
+        MOVT r7, #0x4000
+        LDRB r4, [r7] 	  ; r3 = r7[0]
+        AND r4, r4, #0x20 ; bit twiddling
+        CMP r4, #0
+        BGT checkdisplay
+
+        MOV r8, #0xC000
+        MOVT r8, #0x4000
+        STRB r0, [r8] ; (r8 = 0x4000C000)[0] = r0
+
+        POP {lr, r7, r8}
+        mov pc, lr
 
 output_string:
-        PUSH {lr}   ; Store register lr on stack
+        PUSH {lr, r4-r11}   ; Store register lr on stack
 
-        MOV r1, r0 ; copying the pointer
+        MOV r5, r0 ; copying the pointer
 
 outputstringloop:
-        LDRB r0, [r1] ; getting the char at the pointer (ptr[0])
+        LDRB r0, [r5] ; getting the char at the pointer (ptr[0])
 
         CMP r0, #0 ; if the char is null char, exit
         BEQ exitoutputstring
 
         BL output_character ; call the output char function to transmit r0 over uart
 
-        ADD r1, r1, #1 ; increment char pointer
+        ADD r5, r5, #1 ; increment char pointer
 
         B outputstringloop ; go back up
 
 exitoutputstring:
 
-        POP {lr}
+        POP {lr, r4-r11}
         mov pc, lr
