@@ -6,10 +6,12 @@
 	.global output_character
 	.global output_string
 
+welcomestring: .string "welcome!", 0
 beginColorEscape: .string "[3", 0
 endColorEscape:   .string ";1;1m", 0
 ptr_to_beginColorEscape: .word beginColorEscape
 ptr_to_endColorEscape: .word endColorEscape
+ptr_to_welcomestring: .word welcomestring
 brickState:  		.word 0x0
 xDelta:  			.byte 0xFF
 yDelta: 			.byte 0x00
@@ -29,7 +31,6 @@ lab7:
 
 	MOV r0, #4 ; set color to blue
 	BL setColor
-
 	MOV r0, #0x6f
 	BL output_character
 
@@ -74,9 +75,9 @@ movePaddle:
 setColor:
 	PUSH {lr, r4-r11}
 
+	PUSH {r0}
 	MOV r0, #27
 	BL output_character
-	PUSH {r0}
 	ldr r0, ptr_to_beginColorEscape
 	BL output_string
 	POP {r0}
