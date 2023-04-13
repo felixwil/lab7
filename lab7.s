@@ -47,7 +47,6 @@ lab7:
 
 	MOV r0, #4 ; set color to blue
 	BL setColor
-
 	MOV r0, #0x6f
 	BL output_character
 
@@ -113,9 +112,9 @@ movePaddle:
 setColor:
 	PUSH {lr, r4-r11}
 
+	PUSH {r0}
 	MOV r0, #27
 	BL output_character
-	PUSH {r0}
 	ldr r0, ptr_to_beginColorEscape
 	BL output_string
 	POP {r0}
