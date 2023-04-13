@@ -10,6 +10,18 @@ beginColorEscape: .string "[3", 0
 endColorEscape:   .string ";1;1m", 0
 ptr_to_beginColorEscape: .word beginColorEscape
 ptr_to_endColorEscape: .word endColorEscape
+brickState:  		.word 0x0
+xDelta:  			.byte 0xFF
+yDelta: 			.byte 0x00
+score: 				.word 0x0
+ballxPosition:  	.byte 0x0B
+ballyPosition:  	.byte 0x08
+paddlePosition: 	.byte 0x09
+ballColor:  		.byte 0x00
+lives:  			.byte 0x04
+level:  			.byte 0x01
+pauseState:  		.byte 0x00
+
 lab7:
 	PUSH {lr}   ; Store lr to stack
 
@@ -32,43 +44,14 @@ mainloop:
 	POP {lr}	  ; Restore lr from stack
 	mov pc, lr
 
+printBoard:
+	; Screen size is 23x19, board edges are 23x18, inner board is 21x16
 
-; generates a random integer
-randInt:
-	PUSH {lr, r4-r11}
-	POP  {lr, r4-r11}	  ; Restore lr from stack
-	mov pc, lr
+	; Print the score string and score value
 
-; generates a random color value 1..5
-randomColor:
-	PUSH {lr, r4-r11}
-	POP  {lr, r4-r11}	  ; Restore lr from stack
-	mov pc, lr
+	; Print the upper boarder
 
-; apply one time unit of velocity
-moveBall:
-	PUSH {lr, r4-r11}
-	POP  {lr, r4-r11}	  ; Restore lr from stack
-	mov pc, lr
-
-; return true/false if ball is touching top, left, or right sides.
-btouchWAD:
-	PUSH {lr, r4-r11}
-	POP  {lr, r4-r11}	  ; Restore lr from stack
-	mov pc, lr
-
-; return true/false if ball is touching bottom
-btouchS:
-	PUSH {lr, r4-r11}
-	POP  {lr, r4-r11}	  ; Restore lr from stack
-	mov pc, lr
-
-; return true/false if ball is touching paddle
-btouchPaddle:
-	PUSH {lr, r4-r11}
-	POP  {lr, r4-r11}	  ; Restore lr from stack
-	mov pc, lr
-
+<<<<<<< HEAD
 ; return true/false if ball is touching a brick
 btouchBrick:
 	PUSH {lr, r4-r11}
@@ -120,5 +103,10 @@ levelClear:
 	PUSH {lr, r4-r11}
 	POP  {lr, r4-r11}	  ; Restore lr from stack
 	mov pc, lr
+=======
+	; Print the side walls
+>>>>>>> b775a3d63818cdf3b3f527b0dd6a88fde4eb99d9
 
+	; Print the lower boarder
+	
 	.end
