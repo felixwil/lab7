@@ -1,4 +1,6 @@
+
 	.text
+	.data
 
 	.global lab7
 
@@ -11,8 +13,8 @@
     .global gpio_interrupt_init
     .global timer_interrupt_init
 
-xescapeStringBuffer: .string 0,0,0
-yescapeStringBuffer: .string 0,0,0
+xescapeStringBuffer: .string "                 ",0
+yescapeStringBuffer: .string "                 ",0
 beginBackgroundEscape: .string 27, "[4", 0
 beginColorEscape: 	.string 27, "[3", 0
 endColorEscape:   	.string ";1;1m", 0
@@ -30,8 +32,6 @@ level:  			.byte 0x01
 pauseState:  		.byte 0x00
 scoreString:		.string "Score: ", 0
 topBottomBorder:	.string "+---------------------+", 0
-
-; Pointers to memory locations
 
 ptr_to_xescapeStringBuffer: 	.word xescapeStringBuffer
 ptr_to_yescapeStringBuffer: 	.word yescapeStringBuffer
@@ -57,6 +57,11 @@ lab7:
 	PUSH {lr}   ; Store lr to stack
 
 	BL uart_init
+	BL timer_interrupt_init
+
+	MOV r0, #0xc
+	BL output_character
+
 	MOV r0, #0xc
 	BL output_character
 
@@ -65,10 +70,11 @@ lab7:
 	MOV r0, #0x0
 	;BL output_character
 
-	MOV r1, #0
+	MOV r0, #1
+	MOV r1, #1
 	BL setCursorxy
 
-	MOV r0, #2 ; set color to yellow
+	MOV r0, #1 ; set color to yellow
 	BL setBackground
 	MOV r0, #0x20
 	BL output_character
@@ -95,6 +101,7 @@ Timer_Handler:
     PUSH {lr, r4-r11}
 
 	; Clear the interrupt, using load -> or -> store to not overwrite other data
+
     MOV  r11, #0x0024
     MOVT r11, #0x4003			; Address for interrupt
     LDRB r4, [r11]          	; Load interrupt value
@@ -123,7 +130,6 @@ Timer_Handler:
 	BL btouchSide
 	CMP r1, #1
 	BNE checkRoof					; If no touch, continue to next check
-
 
 checkRoof:
 	; See if ball hits roof
@@ -197,32 +203,39 @@ escapeSequence:
 setCursorxy:
 	PUSH{lr, r4-r11}
 
+	ADD r1, r1, #1
+
 	ldr r4, ptr_to_xescapeStringBuffer
-	PUSH {r1}
+	PUSH {r0, r1}
 	MOV r1, r4
 	BL int2string
-	POP {r1}
+	POP {r0, r1}
 	ldr r5, ptr_to_yescapeStringBuffer
 	PUSH {r0, r1}
 	MOV r0, r1
 	MOV r1, r5
-	POP {r0, r1}
+	BL int2string
 
 	BL escapeSequence
 	MOV r0, #0x48
 	BL output_character
 
-	CMP r4, #0x30
+	POP {r0}
+	CMP r0, #0
 	BEQ noxshift
+
 	BL escapeSequence
 	MOV r0, r4
 	BL output_string
 	MOV r0, #0x43 ; column shift for x
 	BL output_character
+
 noxshift:
 
-	CMP r5, #0x30
+	POP {r1}
+	CMP r1, #0
 	BEQ noyshift
+
 	BL escapeSequence
 	MOV r0, r5
 	BL output_string
@@ -279,7 +292,7 @@ printWalls:
 printBottom:
 	; Print the lower boarder
 	MOV r0, #0
-	MOV r0, #17
+	MOV r1, #17
 	BL setCursorxy				; Set cursor to beginning of second line
 	LDR r0, ptr_to_topBottomBorder
 	BL output_string			; Print the border
