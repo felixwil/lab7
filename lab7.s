@@ -30,7 +30,7 @@ scoreString:		.string "Score: ", 0
 topBottomBorder:	.string "+---------------------+", 0
 
 ; Pointers to memory locations
-ptr_to_beginBackgroundEscape	.word beginBackgroundEscape
+ptr_to_beginBackgroundEscape:	.word beginBackgroundEscape
 ptr_to_beginColorEscape:		.word beginColorEscape
 ptr_to_endColorEscape:			.word endColorEscape
 ptr_to_brickState:				.word brickState
@@ -96,6 +96,79 @@ Timer_Handler:
     ORR r4, r4, #1          	; Set bit 0 to 1
 	STRB r4, [r11]				; Store back to clear interrupt
 
+	; Calculate the next position of the ball
+	; Load x and y positions
+	; Add x and y delta to their current position
+	LDR r5, ptr_to_ballxPosition
+	LDRB r5, [r5]
+	LDR r6, ptr_to_ballyPosition
+	LDRB r6, [r6]					; Load current x and y position into r5 and r6 (don't change these registers, need them later)
+	LDR r7, ptr_to_xDelta
+	LDRB r7, [r7]
+	LDR r8, ptr_to_yDelta
+	LDRB r8, [r8]					; Load current x and y deltas into r7 and r8 (change these to hold potential new position)
+	ADD r7, r7, r5
+	ADD r8, r8, r6					; Add x and y postions to their respective deltas and store back into r7 and r8
+	MOV r4, #0						; Register to track if any touches happen
+
+	; See if ball hits a wall
+	; Call btouchSide, if r = 1, update deltas
+	MOV r2, r7
+	MOV r3, r8						; Pass potential positions to touch functions
+	BL btouchSide
+	CMP r1, #1
+	BNE checkRoof					; If no touch, continue to next check
+	
+
+checkRoof:
+	; See if ball hits roof
+	; Call btouchTop, if r = 1, update deltas
+
+checkBrick:
+	; See if ball hits brick
+	; Call btouchBrick, if r1 = 1, update deltas, NEEDS TO KNOW IF HITTING VERTICAL OR HORIZONTAL FACE
+	; Set brick state for that brick to 0, and erase the brick
+
+checkBottom:
+	; See if ball hits bottom
+	; Call btouchBot, if r1 = 1 then lose life, reset paddle and ball position, and x,y delta's
+
+checkPaddle:
+	; See if ball hits paddle
+	; Call btouchPaddle, if r1 = 1, call updateBallDeltaForPaddleBounce
+
+checkBounce:
+	; If any of the above happen, update position again using new delta values
+	CMP r4, #0
+	BEQ printBall					; If no touches happen
+	; Recalculate position:
+	LDR r7, ptr_to_xDelta
+	LDRB r7, [r7]
+	LDR r8, ptr_to_yDelta
+	LDRB r8, [r8]					; Load current x and y deltas into r7 and r8
+	ADD r7, r7, r5
+	ADD r8, r8, r6					; Add x and y postions to their respective deltas
+	LDR r9, ptr_to_ballxPosition
+	STRB r7, [r9]
+	LDR r10, ptr_to_ballyPosition
+	LDRB r8, [r10]					; Store new x and y positions to memory
+
+printBall:
+	; Print " " where ball currently is to erase it (this is where we need r5 and r6 unchanged)
+	MOV r0, r5
+	MOV r1, r6
+	BL setCursorxy					; Move cursor to current ball position
+	MOV r0, #0x20					
+	BL output_character				; Print a " " character
+
+	; Print the ball in its new position
+	MOV r0, r7
+	MOV r1, r8
+	BL setCursorxy					; Move cursor to new position
+	MOV r0, #0x6F
+	BL output_character				; Print a "o" character
+
+
     ; Update position based on direction stored in current_direction and switch_speed
     # ldr r7, ptr_to_yposition
     # ldrbs r9, [r7]
@@ -146,6 +219,7 @@ Timer_Handler:
 
 	BX lr       	; Return
 
+
 escapeSequence:
 	PUSH {lr}
 
@@ -156,6 +230,8 @@ escapeSequence:
 
 	POP {pc}
 
+
+; Sets the x,y position of the cursor, input r0=x, r1=y
 setCursorxy:
 	PUSH{lr, r4-r11}
 
@@ -188,6 +264,8 @@ noyshift:
 	POP {lr, r4-r11}
 	mov pc, lr
 
+
+; Prints the boundries of the board
 printBoard:
 	; Screen size is 23x19, board edges are 23x18, inner board is 21x16
 	PUSH{lr, r4-r11}
@@ -240,6 +318,7 @@ printBottom:
 	POP {lr, r4-r11}
 	mov pc, lr
 
+
 ; Prints the set amount of blocks in random colors
 displayBricks:
 	PUSH {lr, r4-r11}
@@ -262,6 +341,7 @@ displayBricks:
 
 	; Jump back to loop
 
+
 ; needs to be called before any usage of the btouch methods
 setupForBounceChecks:
 	PUSH {lr}
@@ -271,6 +351,7 @@ setupForBounceChecks:
 	ldr r4, ptr_to_paddlePos
 
 	POP {pc}
+
 
 ; return true/false if ball is on a brick
 ; x and y values in r2, r3, value returned in r1
@@ -313,9 +394,10 @@ btouchSidetrue:
 	MOV r1, #1
 	POP  {pc}	  ; Restore lr from stack
 
+
 ; return true/false if ball is on the top
 ; x and y values in r2, r3, value returned in r1
-btouchtop:
+btouchTop:
 	PUSH {lr}
 	CMP r3, #0
 	ITE LE
@@ -323,15 +405,17 @@ btouchtop:
 	MOVGT r1, #0
 	POP  {pc}
 
+
 ; return true/false if ball is on the bottom
 ; x and y values in r2, r3, value returned in r1
-btouchbot:
+btouchBot:
 	PUSH {lr}
 	CMP r3, #17
 	ITE GE
 	MOVGE r1, #1
 	MOVLT r1, #0
 	POP  {pc}
+
 
 ; return -1 if ball not on paddle, else the position on the paddle
 ; which it is touching
@@ -352,11 +436,15 @@ btouchPaddle:
 	SUB r1, r2, r4
 	POP  {pc} ; return true
 
+
 btouchPaddlefalse:
 	MOV r1, #-1
 	POP  {pc}
 
+
 ; needs btouch setup to be called before
+; Alternatively, btouchPaddle can return 0 for no touch, 1 for left side, 2 for middle, 3 for right side
+; and based on that value, (xD, yD) = (-1, 1), (0, 1), (1, 1) respectively
 updateBallDeltaForPaddleBounce:
 	PUSH {lr}
 	BL btouchPaddle
