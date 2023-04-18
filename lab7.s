@@ -107,22 +107,31 @@ Timer_Handler:
 	LDRB r7, [r7]
 	LDR r8, ptr_to_yDelta
 	LDRB r8, [r8]					; Load current x and y deltas into r7 and r8 (change these to hold potential new position)
-	ADD r7, r7, r5
-	ADD r8, r8, r6					; Add x and y postions to their respective deltas and store back into r7 and r8
-	MOV r4, #0						; Register to track if any touches happen
+	ADD r9, r7, r5
+	ADD r10, r8, r6					; Add x and y postions to their respective deltas and store into r9 and r10
+
+	; Initialize inputs to touch functions
+	MOV r2, r7
+	MOV r3, r8						
+	LDR r4, ptr_to_paddlePos
+	LDRB r4, [r4]					; Pass potential x, y and paddle positions to touch functions
 
 	; See if ball hits a wall
 	; Call btouchSide, if r = 1, update deltas
-	MOV r2, r7
-	MOV r3, r8						; Pass potential positions to touch functions
 	BL btouchSide
 	CMP r1, #1
 	BNE checkRoof					; If no touch, continue to next check
-	
+	SMUL r7, #-1					; Reverse x delta
+	B checkDoubleBounce				; Jump to checkDoubleBounce for if it double bounces
 
 checkRoof:
 	; See if ball hits roof
 	; Call btouchTop, if r = 1, update deltas
+	BL btouchTop
+	CMP r1, #1
+	BNE checkBrick					; If no touch, continue to next check
+	SMUL r7, #-1					; Reverse x delta
+	B checkDoubleBounce				; Jump to checkDoubleBounce for if it double bounces
 
 checkBrick:
 	; See if ball hits brick
@@ -137,10 +146,8 @@ checkPaddle:
 	; See if ball hits paddle
 	; Call btouchPaddle, if r1 = 1, call updateBallDeltaForPaddleBounce
 
-checkBounce:
-	; If any of the above happen, update position again using new delta values
-	CMP r4, #0
-	BEQ printBall					; If no touches happen
+	; Branch here after a bounce has occurred
+checkDoubleBounce:
 	; Recalculate position:
 	LDR r7, ptr_to_xDelta
 	LDRB r7, [r7]
@@ -148,6 +155,10 @@ checkBounce:
 	LDRB r8, [r8]					; Load current x and y deltas into r7 and r8
 	ADD r7, r7, r5
 	ADD r8, r8, r6					; Add x and y postions to their respective deltas
+	; Run all bounce checks again to see if there are any double bounces:
+	; Do the stuff here
+
+	; Store the positions to memory
 	LDR r9, ptr_to_ballxPosition
 	STRB r7, [r9]
 	LDR r10, ptr_to_ballyPosition
