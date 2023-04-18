@@ -11,6 +11,8 @@
     .global gpio_interrupt_init
     .global timer_interrupt_init
 
+xescapeStringBuffer: .string 0,0,0
+yescapeStringBuffer: .string 0,0,0
 beginBackgroundEscape: .string 27, "[4", 0
 beginColorEscape: 	.string 27, "[3", 0
 endColorEscape:   	.string ";1;1m", 0
@@ -30,6 +32,9 @@ scoreString:		.string "Score: ", 0
 topBottomBorder:	.string "+---------------------+", 0
 
 ; Pointers to memory locations
+
+ptr_to_xescapeStringBuffer: 	.word xescapeStringBuffer
+ptr_to_yescapeStringBuffer: 	.word yescapeStringBuffer
 ptr_to_beginBackgroundEscape:	.word beginBackgroundEscape
 ptr_to_beginColorEscape:		.word beginColorEscape
 ptr_to_endColorEscape:			.word endColorEscape
@@ -181,49 +186,6 @@ printBall:
 
 
     ; Update position based on direction stored in current_direction and switch_speed
-    # ldr r7, ptr_to_yposition
-    # ldrbs r9, [r7]
-    # ldr r8, ptr_to_xposition
-    # ldrbs r10, [r8]
-
-	# cmp r9, #0xFF
-	# BEQ game_over_handler
-
-	# cmp r9, #20
-	# BEQ game_over_handler
-
-    # ldr r5, ptr_to_current_direction
-    # LDRB r6, [r5]
-    # cmp r6, #0x77 ; W
-    # IT EQ
-    # ADDEQ r9, r9, #-1 ; y += 1
-    # ;ADDEQ r10, r10, #-1 ; y += 1
-    # cmp r6, #0x61 ; A
-    # IT EQ
-    # ADDEQ r10, r10, #-1 ; x -= 1
-    # cmp r6, #0x73 ; S
-    # IT EQ
-    # ADDEQ r9, r9, #1 ; y -= 1
-    # cmp r6, #0x64 ; D
-	# IT EQ
-	# ADDEQ r10, r10, #1 ; x += 1
-
-    # cmp r10, #0
-	# BEQ game_over_handler
-
-	# cmp r10, #21
-	# BEQ game_over_handler
-
-	# strb r9, [r7]
-	# strb r10, [r8]
-
-	# ldr r7, ptr_to_movement_counter
-	# LDRB r8, [r7]
-	# ADD r8, r8, #1
-	# STRB r8, [r7]
-
-    # ; Call display board to referesh the screen
-    # BL displayboard
 
     ; Restore the registers
     POP {lr, r4-r11}
@@ -246,10 +208,17 @@ escapeSequence:
 setCursorxy:
 	PUSH{lr, r4-r11}
 
-	MOV r4, r0 ; x C 0x43
-	ADD r4, r4, #0x30
-	MOV r5, r1 ; y B 0x42
-	ADD r5, r5, #0x31
+	ldr r4, ptr_to_xescapeStringBuffer
+	PUSH {r1}
+	MOV r1, r4
+	BL int2string
+	POP {r1}
+	ldr r5, ptr_to_yescapeStringBuffer
+	PUSH {r0, r1}
+	MOV r0, r1
+	MOV r1, r5
+	POP {r0, r1}
+
 	BL escapeSequence
 	MOV r0, #0x48
 	BL output_character
@@ -258,7 +227,7 @@ setCursorxy:
 	BEQ noxshift
 	BL escapeSequence
 	MOV r0, r4
-	BL output_character
+	BL output_string
 	MOV r0, #0x43 ; column shift for x
 	BL output_character
 noxshift:
@@ -267,7 +236,7 @@ noxshift:
 	BEQ noyshift
 	BL escapeSequence
 	MOV r0, r5
-	BL output_character
+	BL output_string
 	MOV r0, #0x42 ; row shift for y
 	BL output_character
 noyshift:
@@ -334,15 +303,15 @@ printBottom:
 displayBricks:
 	PUSH {lr, r4-r11}
 	; Get the brick state
-	mov r0, ptr_to_brickState
-	LDW r4, r0				; Loads brickState into r4
+	ldr r0, ptr_to_brickState
+	LDRW r4, [r0]				; Loads brickState into r4
 
 	; Loop over first 28 bits
 	MOV r5, #0				; Set bit position to be 0
 	MOV r6, #1				; Create a mask
 	; Check bit value
 	AND r7, r5, r6
-	LSR r4
+	; ldr r6, ptr_to_xDeltaLSR r4,
 	CMP r7, r6
 
 
@@ -374,7 +343,8 @@ btouchBrick:
 	CMP r3, #6 ; y > 6
 	BGT btouchBrickfalse ; return false
 	; shift brickState by x*7 places
-	ldrw r1, ptr_to_brickState
+	ldr r1, ptr_to_brickState
+	ldrw r1, [r1]
 	MOV r5, #7
 	MUL r5, r2, r5 ; r5 = x*7
 	LSR r1, r1, r5 ; brickstate >>= r5
@@ -394,9 +364,9 @@ btouchSide:
 	PUSH {lr}
 	; return true if x is 0 or greater than 21
 	CMP r2, #0
-	BEQ btouchsidetrue
+	BEQ btouchSidetrue
 	CMP r2, #21
-	BGT btouchsidetrue
+	BGT btouchSidetrue
 
 	MOV r1, #0 	  ; false
 	POP  {pc}	  ; Restore lr from stack
@@ -434,8 +404,8 @@ btouchBot:
 btouchPaddle:
 	PUSH {lr}
 	; return true if y position = 16 and x < paddlepos or x > paddlepos+4
-	CMP r3, #16 ; y < 16
-	BLT btouchPaddlefalse ; return false
+	CMP r3, #16 ; y != 16
+	BNE btouchPaddlefalse ; return false
 
 	CMP r2, r4 ; x < paddlepos
 	BLT btouchPaddlefalse ; return false
@@ -485,7 +455,7 @@ updateBallDeltaForPaddleBounce:
 
 	CMP r1, #1
 	ITT EQ
-	MOVEQ r3, #-2
+	MOVEQ r3, #0xfe
 	BEQ exitUpdateBallDelta
 
 	CMP r1, #0
@@ -494,8 +464,12 @@ updateBallDeltaForPaddleBounce:
 	BEQ exitUpdateBallDelta
 
 exitUpdateBallDelta:
-	str r2, ptr_to_xDelta
-	str r3, ptr_to_yDelta
+	PUSH {r6}
+	ldr r6, ptr_to_xDelta
+	strb r2, [r6]
+	ldr r6, ptr_to_yDelta
+	strb r3, [r6]
+	POP {r6}
 
 exitBallDeltaCheck:
 	POP {pc}

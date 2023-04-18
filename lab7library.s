@@ -294,7 +294,7 @@ exitoutputstring:
         POP {lr, r4-r11}
         mov pc, lr
 
-        int2string:
+int2string:
         PUSH {lr, r4-r6}      ; Store register lr on stack
 
 	; r0: int, r1: char*
