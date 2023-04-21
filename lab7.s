@@ -18,8 +18,8 @@ beginColorEscape: 	.string 27, "[3", 0
 endColorEscape:   	.string ";1;1m", 0
 resetColorString:   .string 27, "[0m", 0
 brickState:  		.word 0x0
-xDelta:  			.byte 0xFF
-yDelta: 			.byte 0x00
+xDelta:  			.byte 0x00
+yDelta: 			.byte 0xFF
 score: 				.word 0x0
 ballxPosition:  	.byte 0x0B
 ballyPosition:  	.byte 0x08
@@ -135,17 +135,40 @@ checkRoof:
 	BL btouchTop
 	CMP r1, #1
 	BNE checkBrick					; If no touch, continue to next check
-	SMUL r7, #-1					; Reverse x delta
+	SMUL r8, #-1					; Reverse x delta
 	B checkDoubleBounce				; Jump to checkDoubleBounce for if it double bounces
 
 checkBrick:
 	; See if ball hits brick
 	; Call btouchBrick, if r1 = 1, update deltas, NEEDS TO KNOW IF HITTING VERTICAL OR HORIZONTAL FACE
-	; Set brick state for that brick to 0, and erase the brick
+	; Set brick state for that brick to 0, erase the brick, update score
 
 checkBottom:
 	; See if ball hits bottom
 	; Call btouchBot, if r1 = 1 then lose life, reset paddle and ball position, and x,y delta's
+	BL btouchBot
+	CMP r1, #1
+	LDR r4, ptr_to_lives
+	LDRB r5, [r4]
+	SUB r5, #1						
+	STRB r5, [r4]					; Load, subtract one, and store lives back to memory
+
+	; Reset paddle and ball positions, and x,y deltas
+	LDR r5, ptr_to_paddlePos
+	MOV r4, #0x09
+	STRB r4, [r5]					; Reset paddle position
+	LDR r5, ptr_to_ballxPosition
+	MOV r4, #0x0B
+	STRB r4, [r5]					; Reset x position
+	LDR r5, ptr_to_ballyPosition
+	MOV r4, #0x08
+	STRB r4, [r5]					; Reset y position
+	LDR r5, ptr_to_xDelta
+	MOV r4, #0x00
+	STRB r4, [r5]					; Reset x delta
+	LDR r5, ptr_to_yDelta
+	MOV r4, #0xFF
+	STRB r4, [r5]					; Reset y delta
 
 checkPaddle:
 	; See if ball hits paddle
