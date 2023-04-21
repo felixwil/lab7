@@ -14,7 +14,7 @@
         .global string2int
         .global int2string
 
-	.global uart_interrupt_init
+		.global uart_interrupt_init
         .global gpio_interrupt_init
         .global timer_interrupt_init
 
@@ -197,62 +197,63 @@ gpio_interrupt_init:
         MOV pc, lr                 ; return to source call             ; return to source call
 
 timer_interrupt_init:
-        ; Connect clock to timer
-        MOV r11, #0xE604
-        MOVT r11, #0x400F   ; load address
-        LDRW r4, [r11]      ; load value
-        ORR r4, r4, #1      ; write 1 to bit 0
-        STRW r4, [r11]      ; store back
+    ; Connect clock to timer
+    MOV r11, #0xE604
+    MOVT r11, #0x400F   ; load address
+    LDRW r4, [r11]      ; load value
+    ORR r4, r4, #1      ; write 1 to bit 0
+    STRW r4, [r11]      ; store back
 
-        ; Disable timer
-        MOV r11, #0x000C
-        MOVT r11, #0x4003   ; load address
-        LDRW r4, [r11]      ; load value
-        AND r4, r4, #0xFE      ; write 1 to bit 0
-        STRW r4, [r11]      ; store back
+    ; Disable timer
+    MOV r11, #0x000C
+    MOVT r11, #0x4003   ; load address
+    LDRW r4, [r11]      ; load value
+    AND r4, r4, #0xFE      ; write 1 to bit 0
+    STRW r4, [r11]      ; store back
 
-        ; Put timer into 32-bit mode
-        MOV r11, #0x0000
-        MOVT r11, #0x4003   ; load address
-        LDRW r4, [r11]      ; load value
-        AND r4, r4, #0xF8   ; write 0 to first 3 bits
-        STRW r4, [r11]      ; write back
+    ; Put timer into 32-bit mode
+    MOV r11, #0x0000
+    MOVT r11, #0x4003   ; load address
+    LDRW r4, [r11]      ; load value
+    AND r4, r4, #0xF8   ; write 0 to first 3 bits
+    STRW r4, [r11]      ; write back
 
-        ; Put timer into periodic mode
-        MOV r11, #0x0004
-        MOVT r11, #0x4003   ; load address
-        LDRW r4, [r11]      ; load value
-        AND r4, r4, #0xFE      ; write 2 to first two bits
-        ORR r4, r4, #2      ; write 2 to first two bits
-        STRW r4, [r11]      ; write back
+    ; Put timer into periodic mode
+    MOV r11, #0x0004
+    MOVT r11, #0x4003   ; load address
+    LDRW r4, [r11]      ; load value
+    AND r4, r4, #0xFE      ; write 2 to first two bits
+    ORR r4, r4, #2      ; write 2 to first two bits
+    STRW r4, [r11]      ; write back
 
-        ; Set up interval period
-        MOV r11, #0x0028
-        MOVT r11, #0x4003   ; load address
-        MOV r4, #0x2400
-        MOVT r4, #0x00F4    ; load frequency
-        STRW r4, [r11]      ; store frequency
+    ; Set up interval period
+    MOV r11, #0x0028
+    MOVT r11, #0x4003   ; load address
+    MOV r4, #0x2400
+    MOVT r4, #0x00F4    ; load frequency
+    STRW r4, [r11]      ; store frequency
 
-        ; Enable timer to interrupt processor
-        MOV r11, #0x0018
-        MOVT r11, #0x4003   ; load address
-        LDRW r4, [r11]      ; load value
-        ORR r4, r4, #1      ; write 1 to bit 0
-        STRW r4, [r11]      ; write back
+    ; Enable timer to interrupt processor
+    MOV r11, #0x0018
+    MOVT r11, #0x4003   ; load address
+    LDRW r4, [r11]      ; load value
+    ORR r4, r4, #1      ; write 1 to bit 0
+    STRW r4, [r11]      ; write back
 
-        ; Configure processor to allow timer interrupts
-        MOV r11, #0xE100
-        MOVT r11, #0xE000   ; load address
-        LDR r4, [r11]       ; load value
-        ORR r4, r4, #1 << 19 ; 0x80000; write 1 to bit 19
-        STRW r4, [r11]       ; write back
+    ; Configure processor to allow timer interrupts
+    MOV r11, #0xE100
+    MOVT r11, #0xE000   ; load address
+    LDR r4, [r11]       ; load value
+    ORR r4, r4, #1 << 19 ; 0x80000; write 1 to bit 19
+    STRW r4, [r11]       ; write back
 
-        ; Enable timer
-        MOV r11, #0x000C
-        MOVT r11, #0x4003  ; load address
-        LDRW r4, [r11]      ; load value
-        ORR r4, r4, #1      ; write 1 to bit 0
-        STRW r4, [r11]
+    ; Enable timer
+    MOV r11, #0x000C
+    MOVT r11, #0x4003  ; load address
+    LDRW r4, [r11]      ; load value
+    ORR r4, r4, #1      ; write 1 to bit 0
+    STRW r4, [r11]
+
 
 output_character:
         PUSH {lr, r4-r11}   ; Store register lr on stack
