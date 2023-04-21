@@ -4,6 +4,10 @@
 
 	.global lab7
 
+	.global UART0_Handler
+	.global Switch_Handler
+	.global Timer_Handler
+
 	.global uart_init
 	.global output_character
 	.global output_string
@@ -19,9 +23,9 @@ beginBackgroundEscape: .string 27, "[4", 0
 beginColorEscape: 	.string 27, "[3", 0
 endColorEscape:   	.string ";1;1m", 0
 resetColorString:   .string 27, "[0m", 0
-brickState:  		.word 0x0
-xDelta:  			.byte 0xFF
-yDelta: 			.byte 0x00
+brickState:  		.word 0xeeeeee
+xDelta:  			.byte 0x1
+yDelta: 			.byte -1
 score: 				.word 0x0
 ballxPosition:  	.byte 0x0B
 ballyPosition:  	.byte 0x08
@@ -57,33 +61,38 @@ lab7:
 	PUSH {lr}   ; Store lr to stack
 
 	BL uart_init
-	BL timer_interrupt_init
+	; BL timer_interrupt_init
 
-	MOV r0, #0xc
-	BL output_character
+	BL resetColor
 
 	MOV r0, #0xc
 	BL output_character
 
 	BL printBoard
+	BL displayBricks
 
-	MOV r0, #0x0
-	;BL output_character
-
-	MOV r0, #1
-	MOV r1, #1
-	BL setCursorxy
-
-	MOV r0, #1 ; set color to yellow
-	BL setBackground
-	MOV r0, #0x20
-	BL output_character
-	MOV r0, #0x20
-	BL output_character
-	MOV r0, #0x20
-	BL output_character
+	;MOV r0, #1
+	;MOV r1, #16
+	;BL setCursorxy
 
 	BL resetColor
+	MOV r2, #1
+	BL movePaddle
+	BL movePaddle
+	BL movePaddle
+	BL movePaddle
+	;BL printPaddle
+
+	;MOV r0, #2 ; set color to yellow
+	;BL setBackground
+	;MOV r0, #0x20
+	;BL output_character
+	;MOV r0, #0x20
+	;BL output_character
+	;MOV r0, #0x20
+	;BL output_character
+
+	;BL resetColor
 
 		; Your code is placed here.
  		; Sample test code starts here
@@ -116,12 +125,19 @@ Timer_Handler:
 	LDR r6, ptr_to_ballyPosition
 	LDRB r6, [r6]					; Load current x and y position into r5 and r6 (don't change these registers, need them later)
 	LDR r7, ptr_to_xDelta
-	LDRB r7, [r7]
+	LDRSB r7, [r7]
 	LDR r8, ptr_to_yDelta
-	LDRB r8, [r8]					; Load current x and y deltas into r7 and r8 (change these to hold potential new position)
+	LDRSB r8, [r8]					; Load current x and y deltas into r7 and r8 (change these to hold potential new position)
 	ADD r7, r7, r5
 	ADD r8, r8, r6					; Add x and y postions to their respective deltas and store back into r7 and r8
 	MOV r4, #0						; Register to track if any touches happen
+	;PUSH {r0, r1}
+	;MOV r0, r5
+	;MOV r1, r6
+	;BL setCursorxy
+	;MOV r0, #0x6f
+	;BL output_character
+	;POP {r0, r1}
 
 	; See if ball hits a wall
 	; Call btouchSide, if r = 1, update deltas
@@ -150,19 +166,19 @@ checkPaddle:
 
 checkBounce:
 	; If any of the above happen, update position again using new delta values
-	CMP r4, #0
-	BEQ printBall					; If no touches happen
+	;CMP r4, #0
+	;BEQ printBall					; If no touches happen
 	; Recalculate position:
 	LDR r7, ptr_to_xDelta
-	LDRB r7, [r7]
+	LDRSB r7, [r7]
 	LDR r8, ptr_to_yDelta
-	LDRB r8, [r8]					; Load current x and y deltas into r7 and r8
+	LDRSB r8, [r8]					; Load current x and y deltas into r7 and r8
 	ADD r7, r7, r5
 	ADD r8, r8, r6					; Add x and y postions to their respective deltas
 	LDR r9, ptr_to_ballxPosition
 	STRB r7, [r9]
 	LDR r10, ptr_to_ballyPosition
-	LDRB r8, [r10]					; Store new x and y positions to memory
+	STRB r8, [r10]					; Store new x and y positions to memory
 
 printBall:
 	; Print " " where ball currently is to erase it (this is where we need r5 and r6 unchanged)
@@ -178,6 +194,8 @@ printBall:
 	BL setCursorxy					; Move cursor to new position
 	MOV r0, #0x6F
 	BL output_character				; Print a "o" character
+
+
 
 
     ; Update position based on direction stored in current_direction and switch_speed
@@ -246,7 +264,6 @@ noyshift:
 	POP {lr, r4-r11}
 	mov pc, lr
 
-
 ; Prints the boundries of the board
 printBoard:
 	; Screen size is 23x19, board edges are 23x18, inner board is 21x16
@@ -300,22 +317,93 @@ printBottom:
 	POP {lr, r4-r11}
 	mov pc, lr
 
+; r2 = -1, or 1
+movePaddle:
+	PUSH {lr, r4}
+	MOV r4, #6
+	LDR r0, ptr_to_paddlePos
+	LDRB r0, [r0]
+	MOV r1, #16
+	BL setCursorxy
+	LDR r0, ptr_to_paddlePos
+	LDRB r0, [r0]
+	MOV r3, r0
+	CMP r2, #1
+	ITE EQ
+	ADDEQ r0, r0, #0
+	ADDNE r0, r0, #4
+	BL setCursorxy
+	MOV r0, #0x20
+	BL output_character
+	ADD r0, r3, r2
+	BL printPaddle
+	POP {pc, r4}
+
+printPaddle:
+	PUSH {lr}
+	MOV r0, #0x5f
+	BL output_character
+	MOV r0, #0x5f
+	BL output_character
+	MOV r0, #0x5f
+	BL output_character
+	MOV r0, #0x5f
+	BL output_character
+	MOV r0, #0x5f
+	BL output_character
+	POP {pc}
+
+printBrick:
+	PUSH {lr}
+	BL setBackground
+	MOV r0, #0x20
+	BL output_character
+	MOV r0, #0x20
+	BL output_character
+	MOV r0, #0x20
+	BL output_character
+	POP {pc}
 
 ; Prints the set amount of blocks in random colors
 displayBricks:
 	PUSH {lr, r4-r11}
+	MOV r0, #1
+	MOV r1, #2
+	BL setCursorxy
+
 	; Get the brick state
 	ldr r0, ptr_to_brickState
 	LDRW r4, [r0]				; Loads brickState into r4
 
-	; Loop over first 28 bits
-	MOV r5, #0				; Set bit position to be 0
-	MOV r6, #1				; Create a mask
-	; Check bit value
-	AND r7, r5, r6
-	; ldr r6, ptr_to_xDeltaLSR r4,
-	CMP r7, r6
+	MOV r7, #7
+	MOV r8, #3
+	MOV r5, #-1				; Set bit position to be 0
 
+displayBrickLoop:
+	; Check bit value
+	ADD r5, r5, #1
+	LSR r6, r4, r5
+	AND r6, r6, #1
+
+	CMP r5, #28
+	BEQ exitDisplayBrickLoop
+	CMP r6, #1
+	BNE displayBrickLoop
+
+	SDIV r1, r5, r7
+	MUL r9, r1, r7
+	SUB r0, r5, r9
+	MUL r0, r0, r8
+	ADD r1, r1, #2
+	ADD r0, r0, #1
+	BL setCursorxy
+	MOV r0, #1 ; set color to red
+	BL printBrick
+	B displayBrickLoop
+
+exitDisplayBrickLoop:
+
+	POP {pc, r4-r11}
 
 	; If 1, generate random color value
 
@@ -482,12 +570,6 @@ bounceBall:
 	POP  {lr, r4-r11}	  ; Restore lr from stack
 	mov pc, lr
 
-; update paddle position
-movePaddle:
-	PUSH {lr, r4-r11}
-	POP  {lr, r4-r11}	  ; Restore lr from stack
-	mov pc, lr
-
 ; set putty terminal color
 ; 1..5 = red, green, yellow, blue, purple
 ; 7 = white
@@ -529,6 +611,7 @@ setBackground:
 
 ; reset terminal color
 resetColor:
+
 	PUSH {lr}
 
 	ldr r0, ptr_to_resetColorString
@@ -546,4 +629,9 @@ levelClear:
 
 	; Print the lower boarder
 	
+
+UART0_Handler:
+Switch_Handler:
+
+
 	.end
