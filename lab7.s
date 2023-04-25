@@ -183,8 +183,6 @@ checkBottom:
 	LDRB r8, [r7]
 	SUB r8, #1
 	STRB r8, [r7]					; Load, subtract one, and store lives back to memory
-	; Light up correct amount of LEDS
-
 
 	; Reset paddle and ball positions, and x,y deltas
 	LDR r8, ptr_to_paddlePos
