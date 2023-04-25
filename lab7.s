@@ -19,6 +19,9 @@
     .global timer_interrupt_init
 	.global gpio_btn_and_LED_init
 
+gameOverStringOne:	.string "Game Over! Score: ",0
+gameOVerStringTwo:	.string "Press c to continue, or any other key to quit.", 0
+scorePlaceholder:	.string "       ", 0
 xescapeStringBuffer: .string "                 ",0
 yescapeStringBuffer: .string "                 ",0
 beginBackgroundEscape: .string 27, "[4", 0
@@ -41,6 +44,9 @@ topBottomBorder:	.string "+---------------------+", 0
 
 ; Pointers to memory locations
 
+ptr_to_gameOverStringOne:		.word gameOverStringOne
+ptr_to_gameOverStringTwo:		.word gameOVerStringTwo
+ptr_to_scorePlaceholder:		.word scorePlaceholder
 ptr_to_xescapeStringBuffer: 	.word xescapeStringBuffer
 ptr_to_yescapeStringBuffer: 	.word yescapeStringBuffer
 ptr_to_beginBackgroundEscape:	.word beginBackgroundEscape
@@ -102,13 +108,50 @@ lab7:
 		; Your code is placed here.
  		; Sample test code starts here
 
+resetLives:
+	; Reset lives to 4
+	MOV r8, #4
+	LDR r7, ptr_to_lives
+	STRB r8, [r7]	
+
 mainloop:
+	; Get lives and light up correct amount of LEDS
 	LDR r5, ptr_to_lives
 	LDRB r0, [r5]
-	BL illuminate_LEDs 
+	BL illuminate_LEDs
+	CMP r0, #0
+	BEQ gameOver 	; If no lives left, branch to game over
 	B mainloop
-		; Sample test code ends here
 
+gameOver:
+	; Disable timer interruts
+    MOV r11, #0x0018
+    MOVT r11, #0x4003   ; load address
+    LDRW r4, [r11]      ; load value
+    ORR r4, r4, #0      ; write 0 to bit 0
+    STRW r4, [r11]      ; write back
+
+	; Print Game over, score, and options
+	MOV r0, #4
+	MOV r1, #6
+	BL setCursorxy
+	LDR r0, ptr_to_gameOverStringOne
+	BL output_string					; Print the first string
+
+	LDR r0, ptr_to_score
+	LDR r1, ptr_to_scorePlaceholder
+	BL int2string
+	LDR r0, ptr_to_scorePlaceholder
+	BL output_string					; Print the score
+
+	MOV r0, #4
+	MOV r1, #7
+	LDR r0, ptr_to_gameOverStringTwo
+	output_string						; Print the second string
+
+	BL read_character
+	CMP r0, #0x63
+	BEQ resetLives						; Branch if user wants to continue
 
 	POP {lr}	  ; Restore lr from stack
 	mov pc, lr
@@ -338,10 +381,12 @@ printBoard:
 	BL setCursorxy				; Set cursor to correct position
 	LDR r0, ptr_to_scoreString
 	BL output_string			; Print "Score: "
-	; LDR r0, ptr_to_score
-	;LDW r0, [r0]				; Load score
-	;BL int2string				; Convert score to string
-	; BL output_string			; Output the score
+	LDR r0, ptr_to_score
+	LDW r0, [r0]				; Load score
+	LDR r1, ptr_to_scorePlaceholder
+	BL int2string				; Convert score to string
+	LDR r0, ptr_to_scorePlaceholder
+	BL output_string			; Output the score
 
 	; Print the upper boarder
 	MOV r0, #0

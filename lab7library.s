@@ -282,7 +282,7 @@ timer_interrupt_init:
     MOV r11, #0x0004
     MOVT r11, #0x4003   ; load address
     LDRW r4, [r11]      ; load value
-    AND r4, r4, #0xFE      ; write 2 to first two bits
+    AND r4, r4, #0xFE   ; write 2 to first two bits
     ORR r4, r4, #2      ; write 2 to first two bits
     STRW r4, [r11]      ; write back
 
