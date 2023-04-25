@@ -17,6 +17,7 @@
     .global gpio_interrupt_init
     .global timer_interrupt_init
 
+uartresult:			.byte 0
 xescapeStringBuffer: .string "                 ",0
 yescapeStringBuffer: .string "                 ",0
 beginBackgroundEscape: .string 27, "[4", 0
@@ -25,7 +26,7 @@ endColorEscape:   	.string ";1;1m", 0
 resetColorString:   .string 27, "[0m", 0
 brickState:  		.word 0xeeeeee
 xDelta:  			.byte 0x1
-yDelta: 			.byte 0x0
+yDelta: 			.byte -1
 score: 				.word 0x0
 ballxPosition:  	.byte 0x0B
 ballyPosition:  	.byte 0x08
@@ -39,6 +40,7 @@ topBottomBorder:	.string "+---------------------+", 0
 
 ; Pointers to memory locations
 
+ptr_to_uartresult:				.word uartresult
 ptr_to_xescapeStringBuffer: 	.word xescapeStringBuffer
 ptr_to_yescapeStringBuffer: 	.word yescapeStringBuffer
 ptr_to_beginBackgroundEscape:	.word beginBackgroundEscape
@@ -63,6 +65,7 @@ lab7:
 	PUSH {lr}   ; Store lr to stack
 
 	BL uart_init
+	BL uart_interrupt_init
 	BL timer_interrupt_init
 
 	BL resetColor
@@ -212,15 +215,19 @@ checkDoubleBounce:
 	;  LDRSB r8, [r8]					; Load current x and y deltas into r7 and r8
 
 	; Commented out for now, will uncomment when all above functions work correctly
+	LDR r4, ptr_to_ballxPosition
+	LDRB r2, [r4]
+	LDR r4, ptr_to_ballyPosition
+	LDRB r3, [r4]
 	ADD r2, r7, r2
 	ADD r3, r8, r3					; Add x and y postions to their respective deltas
 	; Run all bounce checks again to see if there are any double bounces:
 	; Do the stuff here
 
 	; Store the deltas to memory
-	MOV r9, ptr_to_xDelta
+	LDR r9, ptr_to_xDelta
 	STRB r7, [r9]
-	MOV r10, ptr_to_yDelta
+	LDR r10, ptr_to_yDelta
 	STRB r8, [r10]
 
 	; Store the positions to memory
@@ -230,8 +237,6 @@ checkDoubleBounce:
 	STRB r7, [r9]
 	LDR r10, ptr_to_ballyPosition
 	STRB r8, [r10]					; Store new x and y positions to memory
-
-
 
 printBall:
 	; Print " " where ball currently is to erase it (this is where we need r5 and r6 unchanged)
@@ -252,15 +257,70 @@ printBall:
 	MOV r0, #0x6F
 	BL output_character				; Print a "o" character
 
-
-
-
     ; Update position based on direction stored in current_direction and switch_speed
 
     ; Restore the registers
     POP {lr, r4-r11}
 
 	BX lr       	; Return
+
+UART0_Handler:
+	; NEEDS TO MAINTAIN REGISTERS R4-R11, R0-R3;R12;LR;PC DONT NEED PRESERVATION
+	; Save registers
+	PUSH {lr, r4-r11}
+
+	; Clear the interrupt, load -> or -> store
+	MOV r11, #0xC044
+	MOVT r11, #0x4000	; address load
+	LDRB r4, [r11]		; data load
+	ORR r4, r4, #8		; Or to set bit 4 to 1
+	STRB r4, [r11]		; Store
+
+	; Simple_read_character, store in r5 to return to lab5 later
+	BL simple_read_character
+
+	;   W
+	; A S D
+
+	;      0x77
+	; 0x61 0x73 0x64
+	LDR r2, ptr_to_paddlePos
+	LDRB r1, [r2]
+	CMP r0, #0x61 ; a
+	BEQ apressed
+	CMP r0, #0x64 ; d
+	BEQ dpressed
+apressed:
+	ADD r1, r1, #-1
+	B nonepressed
+dpressed:
+	ADD r1, r1, #1
+nonepressed:
+
+	; if r1 < 1 or r1 > 16
+	CMP r1, #0
+	BLT nopaddlemove
+	CMP r1, #16
+	BGT nopaddlemove
+
+	STRB r1, [r2]
+	BL movePaddle
+nopaddlemove:
+
+	; Restore registers
+	POP {lr, r4-r11}
+
+	BX lr       	; Return
+
+simple_read_character:
+    PUSH {lr, r11}          ; store regs
+
+    MOV  r11, #0xc000
+    MOVT r11, #0x4000          ; setting the address
+    LDRB r0, [r11]             ; loading the data into r0
+
+    POP {lr, r11}           ; restore saved regs
+    MOV pc, lr                 ; return to source call
 
 
 escapeSequence:
@@ -377,23 +437,27 @@ printBottom:
 ; r2 = -1, or 1
 movePaddle:
 	PUSH {lr, r4}
+
+	MOV r1, #15
 	MOV r4, #6
 	LDR r0, ptr_to_paddlePos
 	LDRB r0, [r0]
-	MOV r1, #16
+	PUSH {r0}
 	BL setCursorxy
-	LDR r0, ptr_to_paddlePos
-	LDRB r0, [r0]
+	POP {r0}
 	MOV r3, r0
-	CMP r2, #1
-	ITE EQ
-	ADDEQ r0, r0, #0
-	ADDNE r0, r0, #4
-	BL setCursorxy
+	CMP r3, #0
+	BEQ noleftspace
 	MOV r0, #0x20
 	BL output_character
+noleftspace:
 	ADD r0, r3, r2
 	BL printPaddle
+	CMP r3, #21
+	BEQ norightspace
+	MOV r0, #0x20
+	BL output_character
+norightspace:
 	POP {pc, r4}
 
 printPaddle:
@@ -686,8 +750,6 @@ levelClear:
 
 	; Print the lower boarder
 
-
-UART0_Handler:
 Switch_Handler:
 
 
