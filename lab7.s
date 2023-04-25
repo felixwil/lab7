@@ -12,10 +12,12 @@
 	.global output_character
 	.global output_string
     .global int2string
+	.global illuminate_LEDs
 
 	.global uart_interrupt_init
     .global gpio_interrupt_init
     .global timer_interrupt_init
+	.global gpio_btn_and_LED_init
 
 xescapeStringBuffer: .string "                 ",0
 yescapeStringBuffer: .string "                 ",0
@@ -64,6 +66,7 @@ lab7:
 
 	BL uart_init
 	BL timer_interrupt_init
+	BL gpio_btn_and_LED_init
 
 	BL resetColor
 
@@ -100,6 +103,9 @@ lab7:
  		; Sample test code starts here
 
 mainloop:
+	LDR r5, ptr_to_lives
+	LDRB r0, [r5]
+	BL illuminate_LEDs 
 	B mainloop
 		; Sample test code ends here
 
@@ -212,8 +218,10 @@ checkDoubleBounce:
 	;  LDRSB r8, [r8]					; Load current x and y deltas into r7 and r8
 
 	; Commented out for now, will uncomment when all above functions work correctly
+
 	ADD r2, r7, r2
 	ADD r3, r8, r3					; Add x and y postions to their respective deltas
+
 	; Run all bounce checks again to see if there are any double bounces:
 	; Do the stuff here
 

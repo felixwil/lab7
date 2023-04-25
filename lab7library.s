@@ -18,6 +18,66 @@
         .global gpio_interrupt_init
         .global timer_interrupt_init
 
+gpio_btn_and_LED_init:
+        PUSH {lr, r0, r1}
+        ; Enable clock for port F and D
+        MOV r1, #0xE608
+        MOVT r1, #0x400F
+        mov r0, #0x2B
+        STRB r0, [r1]
+
+        ; Setting the direction for port F, 0 button, 1 for RGB LEDs, for tiva board
+        MOV r1, #0x5400
+        MOVT r1, #0x4002
+        mov r0, #0x0E
+        STRB r0, [r1]
+
+        ; Setting the direction for port B, 4 LEDs
+        MOV r1, #0x5400
+        MOVT r1, #0x4000
+        mov r0, #0x0F
+        STRB r0, [r1]
+
+        ; Setting the direction for port D, 0 button, for keypad
+        MOV r1, #0x7400
+        MOVT r1, #0x4000
+        mov r0, #0x00
+        STRB r0, [r1]
+
+        ; Set the pin to be digital for the tiva button and LED's
+        MOV r1, #0x551C
+        MOVT r1, #0x4002
+        mov r0, #0x1F
+        STRB r0, [r1]
+
+        ; Set the pin to be digital for the base board LED's
+        MOV r1, #0x551C
+        MOVT r1, #0x4000
+        mov r0, #0x0F
+        STRB r0, [r1]
+
+        ; Set the pin to be digital for the button on base board
+        MOV r1, #0x751C
+        MOVT r1, #0x4000
+        mov r0, #0x0F
+        STRB r0, [r1]
+
+        ; Set the PUR for pin 4 for the push button
+        MOV r1, #0x5510
+        MOVT r1, #0x4002
+        mov r0, #0x10
+        STRB r0, [r1]
+
+        ; Set the PUR for pin 4 for the push button
+        MOV r1, #0x751C
+        MOVT r1, #0x4000
+        mov r0, #0x0F
+        STRB r0, [r1]
+
+        POP {lr, r0, r1}
+        MOV pc, lr
+
+
 uart_init:
         PUSH {lr, r0, r1}  ; Store register lr on stack
 
@@ -253,6 +313,22 @@ timer_interrupt_init:
     LDRW r4, [r11]      ; load value
     ORR r4, r4, #1      ; write 1 to bit 0
     STRW r4, [r11]
+
+
+illuminate_LEDs:
+        PUSH {lr} ; save regs
+
+        ; make sure we're not writing extra bits to the gpio
+        AND  r0, r0, #0xF
+
+        ; write the bits for the LEDs to the gpio
+        MOV r1, #0x5000
+        MOVT r1, #0x4000
+        STRB r0, [r1, #0x3FC]
+
+        ; restore regs and return
+        POP {lr}
+        MOV pc, lr
 
 
 output_character:
