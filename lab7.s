@@ -12,7 +12,7 @@
 	.global output_character
 	.global output_string
     .global int2string
-	
+
 	.global uart_interrupt_init
     .global gpio_interrupt_init
     .global timer_interrupt_init
@@ -24,8 +24,8 @@ beginColorEscape: 	.string 27, "[3", 0
 endColorEscape:   	.string ";1;1m", 0
 resetColorString:   .string 27, "[0m", 0
 brickState:  		.word 0xeeeeee
-xDelta:  			.byte 0x00
-yDelta: 			.byte -1
+xDelta:  			.byte 0x1
+yDelta: 			.byte 0x0
 score: 				.word 0x0
 ballxPosition:  	.byte 0x0B
 ballyPosition:  	.byte 0x08
@@ -63,7 +63,7 @@ lab7:
 	PUSH {lr}   ; Store lr to stack
 
 	BL uart_init
-	; BL timer_interrupt_init
+	BL timer_interrupt_init
 
 	BL resetColor
 
@@ -129,22 +129,25 @@ Timer_Handler:
 	LDR r7, ptr_to_xDelta
 	LDRSB r7, [r7]
 	LDR r8, ptr_to_yDelta
-	LDRSB r8, [r8]					; Load current x and y deltas into r7 and r8 (change these to hold potential new position)
+	LDRSB r8, [r8]					; Load current x and y deltas into r7 and r8 (dont change these)
 	ADD r9, r7, r5
 	ADD r10, r8, r6					; Add x and y postions to their respective deltas and store into r9 and r10
 
 	; Initialize inputs to touch functions
-	MOV r2, r7
-	MOV r3, r8						
+	MOV r2, r9
+	MOV r3, r10
 	LDR r4, ptr_to_paddlePos
 	LDRB r4, [r4]					; Pass potential x, y and paddle positions to touch functions
 
+checkWall:
 	; See if ball hits a wall
 	; Call btouchSide, if r = 1, update deltas
 	BL btouchSide
 	CMP r1, #1
 	BNE checkRoof					; If no touch, continue to next check
-	SMUL r7, #-1					; Reverse x delta
+
+	MOV r9, #-1
+	MULS r7, r7, r9					; Reverse x delta
 	B checkDoubleBounce				; Jump to checkDoubleBounce for if it double bounces
 
 checkRoof:
@@ -153,7 +156,9 @@ checkRoof:
 	BL btouchTop
 	CMP r1, #1
 	BNE checkBrick					; If no touch, continue to next check
-	SMUL r8, #-1					; Reverse x delta
+
+	MOV r9, #-1
+	MULS r8, r8, r9					; Reverse y delta
 	B checkDoubleBounce				; Jump to checkDoubleBounce for if it double bounces
 
 checkBrick:
@@ -166,27 +171,33 @@ checkBottom:
 	; Call btouchBot, if r1 = 1 then lose life, reset paddle and ball position, and x,y delta's
 	BL btouchBot
 	CMP r1, #1
-	LDR r4, ptr_to_lives
-	LDRB r5, [r4]
-	SUB r5, #1						
-	STRB r5, [r4]					; Load, subtract one, and store lives back to memory
+	BNE checkPaddle					; If no touch, jump to next check
+
+	LDR r7, ptr_to_lives
+	LDRB r8, [r7]
+	SUB r8, #1
+	STRB r8, [r7]					; Load, subtract one, and store lives back to memory
+	; Light up correct amount of LEDS
+
 
 	; Reset paddle and ball positions, and x,y deltas
-	LDR r5, ptr_to_paddlePos
-	MOV r4, #0x09
-	STRB r4, [r5]					; Reset paddle position
-	LDR r5, ptr_to_ballxPosition
-	MOV r4, #0x0B
-	STRB r4, [r5]					; Reset x position
-	LDR r5, ptr_to_ballyPosition
-	MOV r4, #0x08
-	STRB r4, [r5]					; Reset y position
-	LDR r5, ptr_to_xDelta
-	MOV r4, #0x00
-	STRB r4, [r5]					; Reset x delta
-	LDR r5, ptr_to_yDelta
-	MOV r4, #0xFF
-	STRB r4, [r5]					; Reset y delta
+	LDR r8, ptr_to_paddlePos
+	MOV r7, #0x09
+	STRB r7, [r8]					; Reset paddle position
+	LDR r8, ptr_to_ballxPosition
+	MOV r7, #0x0B
+	STRB r7, [r8]					; Reset x position
+	LDR r8, ptr_to_ballyPosition
+	MOV r7, #0x08
+	STRB r7, [r8]					; Reset y position
+	LDR r8, ptr_to_xDelta
+	MOV r7, #0x00
+	STRB r7, [r8]					; Reset x delta
+	LDR r8, ptr_to_yDelta
+	MOV r7, #0x1
+	STRB r7, [r8]					; Reset y delta
+
+	B printBall						; Jump to printBall as no other events possible
 
 checkPaddle:
 	; See if ball hits paddle
@@ -195,20 +206,32 @@ checkPaddle:
 	; Branch here after a bounce has occurred
 checkDoubleBounce:
 	; Recalculate position:
-	LDR r7, ptr_to_xDelta
-	LDRSB r7, [r7]
-	LDR r8, ptr_to_yDelta
-	LDRSB r8, [r8]					; Load current x and y deltas into r7 and r8
-	ADD r7, r7, r5
-	ADD r8, r8, r6					; Add x and y postions to their respective deltas
+	; LDR r7, ptr_to_xDelta				; Dont need to reload becuase edited in register an not overwritten
+	; LDRSB r7, [r7]
+	; LDR r8, ptr_to_yDelta
+	;  LDRSB r8, [r8]					; Load current x and y deltas into r7 and r8
+
+	; Commented out for now, will uncomment when all above functions work correctly
+	ADD r2, r7, r2
+	ADD r3, r8, r3					; Add x and y postions to their respective deltas
 	; Run all bounce checks again to see if there are any double bounces:
 	; Do the stuff here
 
+	; Store the deltas to memory
+	MOV r9, ptr_to_xDelta
+	STRB r7, [r9]
+	MOV r10, ptr_to_yDelta
+	STRB r8, [r10]
+
 	; Store the positions to memory
+	MOV r7, r2
+	MOV r8, r3
 	LDR r9, ptr_to_ballxPosition
 	STRB r7, [r9]
 	LDR r10, ptr_to_ballyPosition
 	STRB r8, [r10]					; Store new x and y positions to memory
+
+
 
 printBall:
 	; Print " " where ball currently is to erase it (this is where we need r5 and r6 unchanged)
@@ -219,8 +242,12 @@ printBall:
 	BL output_character				; Print a " " character
 
 	; Print the ball in its new position
-	MOV r0, r7
-	MOV r1, r8
+	LDR r5, ptr_to_ballxPosition
+	LDRB r5, [r5]
+	LDR r6, ptr_to_ballyPosition
+	LDRB r6, [r6]					; Load current x and y position into r5 and r6 (don't change these registers, need them later)
+	MOV r0, r5
+	MOV r1, r6
 	BL setCursorxy					; Move cursor to new position
 	MOV r0, #0x6F
 	BL output_character				; Print a "o" character
@@ -445,7 +472,7 @@ exitDisplayBrickLoop:
 ; needs to be called before any usage of the btouch methods
 setupForBounceChecks:
 	PUSH {lr}
-	
+
 	ldr r2, ptr_to_ballxPosition
 	ldr r3, ptr_to_ballyPosition
 	ldr r4, ptr_to_paddlePos
@@ -658,7 +685,7 @@ levelClear:
 	; Print the side walls
 
 	; Print the lower boarder
-	
+
 
 UART0_Handler:
 Switch_Handler:
