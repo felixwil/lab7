@@ -145,7 +145,6 @@ mainloop:
 gameOver:
 	; Disable timer interruts
     BL disable_timer
-	; BL timerOff
 
 	; Print Game over, score, and options
 	MOV r0, #4
