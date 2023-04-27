@@ -14,6 +14,7 @@
     .global int2string
 	.global illuminate_LEDs
 	.global read_character
+	.global read_from_push_btns
 
 	.global uart_interrupt_init
     .global gpio_interrupt_init
@@ -80,7 +81,7 @@ ptr_to_pauseState:				.word pauseState
 ptr_to_scoreString:				.word scoreString
 ptr_to_topBottomBorder:			.word topBottomBorder
 ptr_to_resetColorString:   		.word resetColorString
-
+a
 lab7:
 	PUSH {lr}   ; Store lr to stack
 
@@ -99,17 +100,20 @@ restartGame:
 	BL output_character
 
 	; Print the game start instructions
+	MOV r0, #0
+	MOV r1, #0
+	BL setCursorxy
 	LDR r0, ptr_to_gameStartOne
 	BL output_string					; Print first instruction
 	MOV r0, #0
 	MOV r1, #1
 	BL setCursorxy					; Move cursor to next row
-	LDR r0, ptr_to_gameStartTwo		
+	LDR r0, ptr_to_gameStartTwo
 	BL output_string					; Print second instruction
 	MOV r0, #0
 	MOV r1, #2
 	BL setCursorxy					; Move cursor to next row
-	LDR r0, ptr_to_gameStartThree		
+	LDR r0, ptr_to_gameStartThree
 	BL output_string					; Print third instruction
 
 	; Wait for keypress and then read buttons pressed
@@ -124,27 +128,28 @@ restartGame:
 	BEQ threeRow
 	BGT fourRow
 
+	; This also serves as the catch in case no buttons are pressed
 oneRow:
 	; Insert one row of bricks into brickState
-	MOV r5, #0b1111111
-	STRW r5, [r4]
+	MOV r5, #0x7F
+	STR r5, [r4]
 	B rowsDone
 twoRow:
 	; Insert two rows of bricks into brickState
-	MOV r5, #0b11111111111111
-	STRW r5, [r4]
+	MOV r5, #0x3FFF
+	STR r5, [r4]
 	B rowsDone
 threeRow:
 	; Insert three rows of bricks into brickState
-	MOV r5, #0b1111111111111111
-	MOVT r5, #0b11111
-	STRW r5, [r4]
+	MOV r5, #0xFFFF
+	MOVT r5, #0x1F
+	STR r5, [r4]
 	B rowsDone
 fourRow:
 	; Insert one row of bricks into brickState
-	MOV r5, #0b1111111111111111
-	MOVT r5, #0b111111111111
-	STRW r5, [r4]
+	MOV r5, #0xFFFF
+	MOVT r5, #0xFFF
+	STR r5, [r4]
 rowsDone:
 
 	; Clear the page
@@ -163,7 +168,7 @@ rowsDone:
 	; Reset lives to 4
 	MOV r8, #4
 	LDR r7, ptr_to_lives
-	STRB r8, [r7]	
+	STRB r8, [r7]
 	; Turn timer back on
 	BL timerOn
 
@@ -198,7 +203,7 @@ gameOver:
 	LDR r0, ptr_to_gameOverStringTwo
 	BL output_string						; Print the second string
 
-	BL simple_read_character
+	BL read_character
 	CMP r0, #0x63
 	BEQ restartGame						; Branch if user wants to continue
 
@@ -272,9 +277,21 @@ checkRoof:
 
 checkBrick:
 	; See if ball hits brick
-	; Call btouchBrick, if r1 = 1, update deltas, NEEDS TO KNOW IF HITTING VERTICAL OR HORIZONTAL FACE
+	; Call btouchBrick, if r1 = 1, update deltas
 	; Set brick state for that brick to 0, erase the brick, update score
+	BL btouchBrick
+	CMP r1, #1
+	BNE checkBottom					; If no touch, jump to next check
 
+	MOV r9, #-1
+	MULS r8, r8, r9					; Reverse y delta
+	; Set the hit brick's state to 0
+	; Take ball  x and y positions
+	; xpos * 3 gives line offset, next lowest y val
+	; set to 0 to indicate done
+	; print 3 spaces in that blocks position
+	; increment score by level value
+	B checkDoubleBounce				; Jump to checkDoubleBounce for if it double bounces
 
 checkBottom:
 	; See if ball hits bottom
@@ -467,7 +484,7 @@ Switch_Handler:
     PUSH {lr, r4-r11}
 
     ; Clear the interrupt, using load -> or -> store to not overwrite other data
-    MOV  r11, #0x541c			
+    MOV  r11, #0x541c
     MOVT r11, #0x4002			; Address for interrupt
     LDRB r4, [r11]          	; Load interrupt value
     ORR r4, r4, #0x10          	; Set bit 4 to 1
@@ -485,7 +502,7 @@ Switch_Handler:
 	MOV r0, #7
 	MOV r1, #9
 	BL setCursorxy				; Set cursor to middle of the board
-	LDR r0, ptr_to_gameUnpaused 
+	LDR r0, ptr_to_gameUnpaused
 	BL output_string			; Print unpause spaces
 	BL timerOn					; Turn the timer back on
 	B switchDone				; Exit handler
@@ -771,6 +788,16 @@ setupForBounceChecks:
 ; return true/false if ball is on a brick
 ; x and y values in r2, r3, value returned in r1
 btouchBrick:
+	; Potential implementation:
+	; Get the y delta, if 2 then add one to y position
+	; Take x and y values, check which 'brick sector' they are in
+	; Load the brickState, check the bit value for that 'brick sector'
+	; If that bit value is 1, return 1 and exit
+	; If that bit value is 0, subtract one from y position
+	; Recalculate the 'brick sector'
+	; Check bit value for that 'brick sector'
+	; Return that value regardless of if its 1 or 0
+
 	PUSH {lr, r5}
 	; return false if y is greater than 6 or equal to 1
 	CMP r3, #1 ; y == 1
