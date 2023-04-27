@@ -21,10 +21,10 @@
 	.global gpio_btn_and_LED_init
     .global disable_timer
 
+uartresult:			.byte 0
 gameStartOne:		.string "Controls: use a and d keys to move the paddle right and left", 0
 gameStartTwo:		.string "Press and hold number of switches to choose the number of rows of bricks", 0
 gameStartThree:		.string "Press any key on the board to continue and play", 0
-uartresult:			.byte 0
 gameOverStringOne:	.string "Game Over! Score: ",0
 gameOverStringTwo:	.string "Press c to continue, or any other key to quit.", 0
 gamePaused:			.string "Paused", 0
@@ -52,10 +52,10 @@ topBottomBorder:	.string "+---------------------+", 0
 
 ; Pointers to memory locations
 
+ptr_to_uartresult:				.word uartresult
 ptr_to_gameStartOne:			.word gameStartOne
 ptr_to_gameStartTwo:			.word gameStartTwo
 ptr_to_gameStartThree:			.word gameStartThree
-ptr_to_uartresult:				.word uartresult
 ptr_to_gameOverStringOne:		.word gameOverStringOne
 ptr_to_gameOverStringTwo:		.word gameOverStringTwo
 ptr_to_gamePaused:				.word gamePaused
@@ -97,19 +97,21 @@ lab7:
 
 	; Print the game start instructions
 	LDR r0, ptr_to_gameStartOne
-	output_string					; Print first instruction
+	BL output_string					; Print first instruction
 	MOV r0, #0
 	MOV r1, #1
 	BL setCursorxy					; Move cursor to next row
 	LDR r0, ptr_to_gameStartTwo		
-	output_string					; Print second instruction
+	BL output_string					; Print second instruction
 	MOV r0, #0
 	MOV r1, #2
 	BL setCursorxy					; Move cursor to next row
 	LDR r0, ptr_to_gameStartThree		
-	output_string					; Print third instruction
+	BL output_string					; Print third instruction
 
-	
+	; Clear the page
+	MOV r0, #0xc
+	BL output_character
 
 	; Print the board and the bricks
 	BL printBoard
@@ -120,21 +122,8 @@ lab7:
 	BL movePaddle
 
 	BL timer_interrupt_init
-	;BL printPaddle
-
-	;MOV r0, #2 ; set color to yellow
-	;BL setBackground
-	;MOV r0, #0x20
-	;BL output_character
-	;MOV r0, #0x20
-	;BL output_character
-	;MOV r0, #0x20
-	;BL output_character
-
-	;BL resetColor
-
-		; Your code is placed here.
- 		; Sample test code starts here
+	; Your code is placed here.
+ 	; Sample test code starts here
 
 resetLives:
 	; Reset lives to 4
@@ -156,6 +145,7 @@ mainloop:
 gameOver:
 	; Disable timer interruts
     BL disable_timer
+	; BL timerOff
 
 	; Print Game over, score, and options
 	MOV r0, #4
@@ -224,8 +214,6 @@ Timer_Handler:
 	MOV r3, r10
 	LDR r4, ptr_to_paddlePos
 	LDRB r4, [r4]					; Pass potential x, y and paddle positions to touch functions
-
-
 
 checkWall:
 	; See if ball hits a wall
@@ -354,7 +342,7 @@ printBall:
 
 	MOV r0, #0x6F
 	BL output_character				; Print a "o" character
-	; Update position based on direction stored in current_direction and switch_speed
+    ; Update position based on direction stored in current_direction and switch_speed
 
 	; restore saved cursor position
 	BL escapeSequence
@@ -366,57 +354,6 @@ printBall:
     ; Restore the registers
     POP {lr, r4-r11}
 	BX lr       	; Return
-
-    ; Restore the registers
-    POP {lr, r4-r11}
-	BX lr       	; Return
-
-
-Switch_Handler:
-	; Save registers
-    PUSH {lr, r4-r11}
-
-    ; Clear the interrupt, using load -> or -> store to not overwrite other data
-    MOV  r11, #0x541c			
-    MOVT r11, #0x4002			; Address for interrupt
-    LDRB r4, [r11]          	; Load interrup value
-    ORR r4, r4, #8          	; Set bit 4 to 1
-	STRB r4, [r11]				; Store back to clear interrupt
-
-	; Load the pause state
-	LDR r4, ptr_to_pauseState
-	LDRB r5, [r4]
-	CMP r5, #0					; Check if paused or unpaused
-	BEQ pause
-
-	; Change game state
-	MOV r5, #0
-	MOV r0, #7
-	MOV r1, #9
-	BL setCursorxy				; Set cursor to middle of the board
-	LDR r0, ptr_to_gameUnpaused 
-	BL output_string			; Print unpause spaces
-	BL timerOn					; Turn the timer back on
-	B switchDone				; Exit handler
-
-pause:
-	; Turn off the timer
-	BL timerOff
-	; Change game state
-	MOV r5, #1
-	; Set cursor to middle of the board
-	MOV r0, #7
-	MOV r1, #9
-	BL setCursorxy
-	; Print paused
-	LDR r0, ptr_to_gamePaused
-	BL output_string
-
-switchDone:
-	; Restore registers
-    POP {lr, r4-r11}
-	; Return to interrupted instruction
-    BX lr
 
 wipe_row:
 	PUSH {lr}
@@ -487,12 +424,61 @@ nonepressed:
 	BL movePaddle
 nopaddlemove:
 
-	; Restore registers
-	POP {lr, r4-r11}
+    ; Restore the registers
+    POP {lr, r4-r11}
+	BX lr       	; Return
 
+
+Switch_Handler:
+	; Save registers
+    PUSH {lr, r4-r11}
+
+    ; Clear the interrupt, using load -> or -> store to not overwrite other data
+    MOV  r11, #0x541c			
+    MOVT r11, #0x4002			; Address for interrupt
+    LDRB r4, [r11]          	; Load interrupt value
+    ORR r4, r4, #0x10          	; Set bit 4 to 1
+	STRB r4, [r11]				; Store back to clear interrupt
+
+	; Load the pause state
+	LDR r4, ptr_to_pauseState
+	LDRB r5, [r4]
+	CMP r5, #0					; Check if paused or unpaused
+	BEQ pause
+
+	; Change game state
+	MOV r5, #0
+	STRB r5, [r4]
+	MOV r0, #7
+	MOV r1, #9
+	BL setCursorxy				; Set cursor to middle of the board
+	LDR r0, ptr_to_gameUnpaused 
+	BL output_string			; Print unpause spaces
+	BL timerOn					; Turn the timer back on
+	B switchDone				; Exit handler
+
+pause:
+	; Turn off the timer
+	BL disable_timer
+	; Change game state
+	MOV r5, #1
+	STRB r5, [r4]
+	; Set cursor to middle of the board
+	MOV r0, #7
+	MOV r1, #9
+	BL setCursorxy
+	; Print paused
+	LDR r0, ptr_to_gamePaused
+	BL output_string
+
+switchDone:
+	; Restore registers
+    POP {lr, r4-r11}
+	; Return to interrupted instruction
+    BX lr
 
 timerOff:
-	MOV {lr, r4-r11}
+	PUSH {lr, r4-r11}
 	; Disable timer interruts
     MOV r11, #0x0018
     MOVT r11, #0x4003   ; load address
@@ -504,13 +490,14 @@ timerOff:
 
 
 timerOn:
-	MOV {lr, r4-r11}
+	PUSH {lr, r4-r11}
 	; Enable timer interruts
-    MOV r11, #0x0018
+    MOV r11, #0x000c
     MOVT r11, #0x4003   ; load address
     LDRW r4, [r11]      ; load value
     ORR r4, r4, #1      ; write 0 to bit 0
     STRW r4, [r11]      ; write back
+    POP {lr, r4-r11}
 	MOV pc, lr
 
 simple_read_character:
@@ -950,8 +937,4 @@ levelClear:
 	; Print the side walls
 
 	; Print the lower boarder
-
-Switch_Handler:
-
-
 	.end

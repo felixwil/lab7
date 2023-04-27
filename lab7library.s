@@ -277,11 +277,13 @@ gpio_interrupt_init:
         MOV pc, lr                 ; return to source call             ; return to source call
 
 disable_timer:
-    MOV r11, #0xE604
-    MOVT r11, #0x400F   ; load address
+	PUSH {lr, r4-r11}
+    MOV r11, #0x000c
+    MOVT r11, #0x4003   ; load address
     LDRW r4, [r11]      ; load value
     BFC r4, #0, #1      ; write 1 to bit 0
     STRW r4, [r11]      ; store back
+    POP {lr, r4-r11}
     MOV pc, lr
 
 timer_interrupt_init:
@@ -385,7 +387,7 @@ read_from_push_btns:
         MOV pc, lr
 
 illuminate_LEDs:
-        PUSH {lr} ; save regs
+        PUSH {lr, r0, r1} ; save regs
 
         ; make sure we're not writing extra bits to the gpio
         AND  r0, r0, #0xF
@@ -396,7 +398,7 @@ illuminate_LEDs:
         STRB r0, [r1, #0x3FC]
 
         ; restore regs and return
-        POP {lr}
+        POP {lr, r0, r1}
         MOV pc, lr
 
 
