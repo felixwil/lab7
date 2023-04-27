@@ -90,7 +90,10 @@ lab7:
 	BL gpio_btn_and_LED_init
 	BL gpio_interrupt_init
 	BL resetColor
+	BL timer_interrupt_init
+	BL disable_timer
 
+restartGame:
 	; Clear the page
 	MOV r0, #0xc
 	BL output_character
@@ -152,13 +155,11 @@ rowsDone:
 	BL printBoard
 	BL displayBricks
 
+	; Reset the color and paddle positions
 	BL resetColor
 	MOV r2, #0
 	BL movePaddle
 
-	BL timer_interrupt_init
-
-resetLives:
 	; Reset lives to 4
 	MOV r8, #4
 	LDR r7, ptr_to_lives
@@ -199,7 +200,7 @@ gameOver:
 
 	BL simple_read_character
 	CMP r0, #0x63
-	BEQ resetLives						; Branch if user wants to continue
+	BEQ restartGame						; Branch if user wants to continue
 
 	POP {lr}	  ; Restore lr from stack
 	mov pc, lr
