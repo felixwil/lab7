@@ -359,28 +359,26 @@ read_from_push_btns:
         MOV r1, #0x7000
         MOVT r1, #0x4000
         LDRB r0, [r1, #0x3FC]
-        ; Set a counter variable
-        MOV r5, #0
+        
+        ; Set a counter and loop variable
+        MOV r5, #0      ; counter
+        MOV r6, #0      ; loop
 
-        ; reversing the order of the bits we read from the GPIO
-        AND r3, r0, #1
-        LSL r3, r3, #3
-        ORR r4, r4, r3
-
-        AND r3, r0, #2
-        LSL r3, r3, #1
-        ORR r4, r4, r3
-
-        AND r3, r0, #4
-        LSR r3, r3, #3
-        ORR r4, r4, r3
-
-        AND r3, r0, #8
-        LSR r3, r3, #1
-        ORR r4, r4, r3
+        ; Count how many buttons are pressed
+countPressedLoop:
+        ; loop 4 times, check if each position is a one and increment count if so
+        AND r7, r0, #0x1
+        CMP r7, #0
+        BEQ skipPress   ; Check if zero, if so no 1 present
+        ADD r5, r5, #1  ; If one present, increment r5
+skipPress:
+        LSR r0, #1
+        ADD r6, r6, #1
+        CMP r6, #4
+        BLT countPressedLoop
         
         ; move the result into return register
-        MOV r0, r4
+        MOV r0, r5
 
         ; restore regs and return
         POP {lr, r4-r11}

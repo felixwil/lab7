@@ -36,7 +36,7 @@ beginBackgroundEscape: .string 27, "[4", 0
 beginColorEscape: 	.string 27, "[3", 0
 endColorEscape:   	.string ";1;1m", 0
 resetColorString:   .string 27, "[0m", 0
-brickState:  		.word 0xeeeeee
+brickState:  		.word 0x0
 xDelta:  			.byte 0
 yDelta: 			.byte 1
 score: 				.word 0x0
@@ -109,6 +109,41 @@ lab7:
 	LDR r0, ptr_to_gameStartThree		
 	BL output_string					; Print third instruction
 
+	; Wait for keypress and then read buttons pressed
+	BL read_character
+	BL read_from_push_btns
+	; r0 contains number of buttons pressed now, so put ones in needed spaces now
+	LDR r4, ptr_to_brickState
+	CMP r0, #2
+	BLT oneRow
+	BEQ twoRow
+	CMP r0, #3
+	BEQ threeRow
+	BGT fourRow
+
+oneRow:
+	; Insert one row of bricks into brickState
+	MOV r5, #0b1111111
+	STRW r5, [r4]
+	B rowsDone
+twoRow:
+	; Insert two rows of bricks into brickState
+	MOV r5, #0b11111111111111
+	STRW r5, [r4]
+	B rowsDone
+threeRow:
+	; Insert three rows of bricks into brickState
+	MOV r5, #0b1111111111111111
+	MOVT r5, #0b11111
+	STRW r5, [r4]
+	B rowsDone
+fourRow:
+	; Insert one row of bricks into brickState
+	MOV r5, #0b1111111111111111
+	MOVT r5, #0b111111111111
+	STRW r5, [r4]
+rowsDone:
+
 	; Clear the page
 	MOV r0, #0xc
 	BL output_character
@@ -122,8 +157,6 @@ lab7:
 	BL movePaddle
 
 	BL timer_interrupt_init
-	; Your code is placed here.
- 	; Sample test code starts here
 
 resetLives:
 	; Reset lives to 4
