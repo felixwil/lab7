@@ -13,15 +13,18 @@
 	.global output_string
     .global int2string
 	.global illuminate_LEDs
+	.global read_character
 
 	.global uart_interrupt_init
     .global gpio_interrupt_init
     .global timer_interrupt_init
 	.global gpio_btn_and_LED_init
+    .global disable_timer
 
 gameStartOne:		.string "Controls: use a and d keys to move the paddle right and left", 0
 gameStartTwo:		.string "Press and hold number of switches to choose the number of rows of bricks", 0
 gameStartThree:		.string "Press any key on the board to continue and play", 0
+uartresult:			.byte 0
 gameOverStringOne:	.string "Game Over! Score: ",0
 gameOverStringTwo:	.string "Press c to continue, or any other key to quit.", 0
 gamePaused:			.string "Paused", 0
@@ -34,8 +37,8 @@ beginColorEscape: 	.string 27, "[3", 0
 endColorEscape:   	.string ";1;1m", 0
 resetColorString:   .string 27, "[0m", 0
 brickState:  		.word 0xeeeeee
-xDelta:  			.byte 0x1
-yDelta: 			.byte 0x0
+xDelta:  			.byte 0
+yDelta: 			.byte 1
 score: 				.word 0x0
 ballxPosition:  	.byte 0x0B
 ballyPosition:  	.byte 0x08
@@ -52,6 +55,7 @@ topBottomBorder:	.string "+---------------------+", 0
 ptr_to_gameStartOne:			.word gameStartOne
 ptr_to_gameStartTwo:			.word gameStartTwo
 ptr_to_gameStartThree:			.word gameStartThree
+ptr_to_uartresult:				.word uartresult
 ptr_to_gameOverStringOne:		.word gameOverStringOne
 ptr_to_gameOverStringTwo:		.word gameOverStringTwo
 ptr_to_gamePaused:				.word gamePaused
@@ -82,7 +86,7 @@ lab7:
 
 	; Initialization functions
 	BL uart_init
-	BL timer_interrupt_init
+	BL uart_interrupt_init
 	BL gpio_btn_and_LED_init
 	BL gpio_interrupt_init
 	BL resetColor
@@ -112,11 +116,10 @@ lab7:
 	BL displayBricks
 
 	BL resetColor
-	MOV r2, #1
+	MOV r2, #0
 	BL movePaddle
-	BL movePaddle
-	BL movePaddle
-	BL movePaddle
+
+	BL timer_interrupt_init
 	;BL printPaddle
 
 	;MOV r0, #2 ; set color to yellow
@@ -151,7 +154,8 @@ mainloop:
 	B mainloop
 
 gameOver:
-	BL timerOff
+	; Disable timer interruts
+    BL disable_timer
 
 	; Print Game over, score, and options
 	MOV r0, #4
@@ -169,7 +173,7 @@ gameOver:
 	MOV r0, #4
 	MOV r1, #7
 	LDR r0, ptr_to_gameOverStringTwo
-	output_string						; Print the second string
+	BL output_string						; Print the second string
 
 	BL read_character
 	CMP r0, #0x63
@@ -191,6 +195,13 @@ Timer_Handler:
     ORR r4, r4, #1          	; Set bit 0 to 1
 	STRB r4, [r11]				; Store back to clear interrupt
 
+	; save cursor position
+	BL escapeSequence
+	MOV r0, #0x20 ; ' '
+	BL output_character
+	MOV r0, #0x37 ; 7
+	BL output_character
+
 	; Calculate the next position of the ball
 	; Load x and y positions
 	; Add x and y delta to their current position
@@ -202,6 +213,9 @@ Timer_Handler:
 	LDRSB r7, [r7]
 	LDR r8, ptr_to_yDelta
 	LDRSB r8, [r8]					; Load current x and y deltas into r7 and r8 (dont change these)
+	CMP r8, #2
+	IT EQ
+	LSR r8, r8, #1
 	ADD r9, r7, r5
 	ADD r10, r8, r6					; Add x and y postions to their respective deltas and store into r9 and r10
 
@@ -210,6 +224,8 @@ Timer_Handler:
 	MOV r3, r10
 	LDR r4, ptr_to_paddlePos
 	LDRB r4, [r4]					; Pass potential x, y and paddle positions to touch functions
+
+
 
 checkWall:
 	; See if ball hits a wall
@@ -237,6 +253,7 @@ checkBrick:
 	; See if ball hits brick
 	; Call btouchBrick, if r1 = 1, update deltas, NEEDS TO KNOW IF HITTING VERTICAL OR HORIZONTAL FACE
 	; Set brick state for that brick to 0, erase the brick, update score
+
 
 checkBottom:
 	; See if ball hits bottom
@@ -267,11 +284,23 @@ checkBottom:
 	MOV r7, #0x1
 	STRB r7, [r8]					; Reset y delta
 
+	MOV r0, #1
+	MOV r1, #16
+	BL setCursorxy
+	BL wipe_row
+	MOV r2, #0
+	BL movePaddle
+
+
 	B printBall						; Jump to printBall as no other events possible
 
 checkPaddle:
 	; See if ball hits paddle
-	; Call btouchPaddle, if r1 = 1, call updateBallDeltaForPaddleBounce
+	; Call btouchPaddle
+	; return -1 if ball not on paddle, else the position on the paddle
+	; which it is touching
+	BL updateBallDeltaForPaddleBounce
+	B checkDoubleBounce
 
 	; Branch here after a bounce has occurred
 checkDoubleBounce:
@@ -282,7 +311,10 @@ checkDoubleBounce:
 	;  LDRSB r8, [r8]					; Load current x and y deltas into r7 and r8
 
 	; Commented out for now, will uncomment when all above functions work correctly
-
+	LDR r4, ptr_to_ballxPosition
+	LDRB r2, [r4]
+	LDR r4, ptr_to_ballyPosition
+	LDRB r3, [r4]
 	ADD r2, r7, r2
 	ADD r3, r8, r3					; Add x and y postions to their respective deltas
 
@@ -290,9 +322,9 @@ checkDoubleBounce:
 	; Do the stuff here
 
 	; Store the deltas to memory
-	MOV r9, ptr_to_xDelta
+	LDR r9, ptr_to_xDelta
 	STRB r7, [r9]
-	MOV r10, ptr_to_yDelta
+	LDR r10, ptr_to_yDelta
 	STRB r8, [r10]
 
 	; Store the positions to memory
@@ -319,8 +351,21 @@ printBall:
 	MOV r0, r5
 	MOV r1, r6
 	BL setCursorxy					; Move cursor to new position
+
 	MOV r0, #0x6F
 	BL output_character				; Print a "o" character
+	; Update position based on direction stored in current_direction and switch_speed
+
+	; restore saved cursor position
+	BL escapeSequence
+	MOV r0, #0x20 ; ' '
+	BL output_character
+	MOV r0, #0x38 ; 8
+	BL output_character
+
+    ; Restore the registers
+    POP {lr, r4-r11}
+	BX lr       	; Return
 
     ; Restore the registers
     POP {lr, r4-r11}
@@ -373,6 +418,78 @@ switchDone:
 	; Return to interrupted instruction
     BX lr
 
+wipe_row:
+	PUSH {lr}
+	MOV r0, #0x20
+	BL output_character
+	BL output_character
+	BL output_character
+	BL output_character
+	BL output_character
+	BL output_character
+	BL output_character
+	BL output_character
+	BL output_character
+	BL output_character
+	BL output_character
+	BL output_character
+	BL output_character
+	BL output_character
+	BL output_character
+	BL output_character
+	BL output_character
+	BL output_character
+	BL output_character
+	BL output_character
+	BL output_character
+	POP {pc}
+
+UART0_Handler:
+	; NEEDS TO MAINTAIN REGISTERS R4-R11, R0-R3;R12;LR;PC DONT NEED PRESERVATION
+	; Save registers
+	PUSH {lr, r4-r11}
+
+	; Clear the interrupt, load -> or -> store
+	MOV r11, #0xC044
+	MOVT r11, #0x4000	; address load
+	LDRB r4, [r11]		; data load
+	ORR r4, r4, #8		; Or to set bit 4 to 1
+	STRB r4, [r11]		; Store
+
+	; Simple_read_character, store in r5 to return to lab5 later
+	BL simple_read_character
+
+	;   W
+	; A S D
+
+	;      0x77
+	; 0x61 0x73 0x64
+	LDR r2, ptr_to_paddlePos
+	LDRB r1, [r2]
+	CMP r0, #0x61 ; a
+	BEQ apressed
+	CMP r0, #0x64 ; d
+	BEQ dpressed
+apressed:
+	ADD r1, r1, #-1
+	B nonepressed
+dpressed:
+	ADD r1, r1, #1
+nonepressed:
+
+	; if r1 < 1 or r1 > 16
+	CMP r1, #1
+	BLT nopaddlemove
+	CMP r1, #17
+	BGT nopaddlemove
+
+	STRB r1, [r2]
+	BL movePaddle
+nopaddlemove:
+
+	; Restore registers
+	POP {lr, r4-r11}
+
 
 timerOff:
 	MOV {lr, r4-r11}
@@ -395,6 +512,16 @@ timerOn:
     ORR r4, r4, #1      ; write 0 to bit 0
     STRW r4, [r11]      ; write back
 	MOV pc, lr
+
+simple_read_character:
+    PUSH {lr, r11}          ; store regs
+
+    MOV  r11, #0xc000
+    MOVT r11, #0x4000          ; setting the address
+    LDRB r0, [r11]             ; loading the data into r0
+
+    POP {lr, r11}           ; restore saved regs
+    MOV pc, lr                 ; return to source call
 
 
 escapeSequence:
@@ -467,7 +594,7 @@ printBoard:
 	LDR r0, ptr_to_scoreString
 	BL output_string			; Print "Score: "
 	LDR r0, ptr_to_score
-	LDW r0, [r0]				; Load score
+	LDRW r0, [r0]				; Load score
 	LDR r1, ptr_to_scorePlaceholder
 	BL int2string				; Convert score to string
 	LDR r0, ptr_to_scorePlaceholder
@@ -513,36 +640,41 @@ printBottom:
 ; r2 = -1, or 1
 movePaddle:
 	PUSH {lr, r4}
+
+	MOV r1, #16
 	MOV r4, #6
 	LDR r0, ptr_to_paddlePos
 	LDRB r0, [r0]
-	MOV r1, #16
+	PUSH {r0}
+	SUB r0, r0, #1
 	BL setCursorxy
-	LDR r0, ptr_to_paddlePos
-	LDRB r0, [r0]
+	POP {r0}
 	MOV r3, r0
-	CMP r2, #1
+	CMP r3, #1
 	ITE EQ
-	ADDEQ r0, r0, #0
-	ADDNE r0, r0, #4
-	BL setCursorxy
-	MOV r0, #0x20
+	MOVEQ r0, #0x7c
+	MOVNE r0, #0x20
 	BL output_character
 	ADD r0, r3, r2
 	BL printPaddle
+	CMP r3, #17
+	ITE EQ
+	MOVEQ r0, #0x7c
+	MOVNE r0, #0x20
+	BL output_character
 	POP {pc, r4}
 
 printPaddle:
 	PUSH {lr}
-	MOV r0, #0x5f
+	MOV r0, #0x3d
 	BL output_character
-	MOV r0, #0x5f
+	MOV r0, #0x3d
 	BL output_character
-	MOV r0, #0x5f
+	MOV r0, #0x3d
 	BL output_character
-	MOV r0, #0x5f
+	MOV r0, #0x3d
 	BL output_character
-	MOV r0, #0x5f
+	MOV r0, #0x3d
 	BL output_character
 	POP {pc}
 
@@ -697,7 +829,7 @@ btouchPaddle:
 	CMP r2, r4 ; x > paddlepos + 4
 	BGT btouchPaddlefalse ; return false
 
-	SUB r1, r2, r4
+	SUB r1, r4, r2
 	POP  {pc} ; return true
 
 
@@ -715,19 +847,16 @@ updateBallDeltaForPaddleBounce:
 	CMP r1, #-1
 	BEQ exitUpdateBallDelta
 
-	ldr r2, ptr_to_xDelta
-	ldr r3, ptr_to_yDelta
-
 	CMP r1, #2
 	ITTT EQ
-	MOVEQ r2, #0
-	MOVEQ r3, #-1
+	MOVEQ r7, #0
+	MOVEQ r8, #-1
 	BEQ exitUpdateBallDelta
 
-	CMP r2, #0
+	CMP r7, #0
 	ITE LT
-	MOVLT r2, #-1
-	MOVGE r2, #1
+	MOVLT r7, #-1
+	MOVGE r7, #1
 
 	CMP r1, #3
 	IT EQ
@@ -738,20 +867,20 @@ updateBallDeltaForPaddleBounce:
 
 	CMP r1, #1
 	ITT EQ
-	MOVEQ r3, #0xfe
+	MOVEQ r8, #0xfe
 	BEQ exitUpdateBallDelta
 
 	CMP r1, #0
 	ITT EQ
-	MOVEQ r3, #-1
+	MOVEQ r8, #-1
 	BEQ exitUpdateBallDelta
 
 exitUpdateBallDelta:
 	PUSH {r6}
 	ldr r6, ptr_to_xDelta
-	strb r2, [r6]
+	strb r7, [r6]
 	ldr r6, ptr_to_yDelta
-	strb r3, [r6]
+	strb r8, [r6]
 	POP {r6}
 
 exitBallDeltaCheck:
@@ -822,8 +951,6 @@ levelClear:
 
 	; Print the lower boarder
 
-
-UART0_Handler:
 Switch_Handler:
 
 
