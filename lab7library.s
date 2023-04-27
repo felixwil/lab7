@@ -277,11 +277,13 @@ gpio_interrupt_init:
         MOV pc, lr                 ; return to source call             ; return to source call
 
 disable_timer:
-    MOV r11, #0xE604
-    MOVT r11, #0x400F   ; load address
+	PUSH {lr, r4-r11}
+    MOV r11, #0x000c
+    MOVT r11, #0x4003   ; load address
     LDRW r4, [r11]      ; load value
     BFC r4, #0, #1      ; write 1 to bit 0
     STRW r4, [r11]      ; store back
+    POP {lr, r4-r11}
     MOV pc, lr
 
 timer_interrupt_init:
@@ -345,8 +347,45 @@ timer_interrupt_init:
     MOV pc, lr
 
 
+read_from_push_btns:
+        ; save registers we'll be using
+        PUSH {lr, r4}
+
+        ; setting regs we'll be using
+        MOV r4, #0
+        MOV r3, #0
+
+        ; reading the values from port D
+        MOV r1, #0x7000
+        MOVT r1, #0x4000
+        LDRB r0, [r1, #0x3FC]
+
+        ; reversing the order of the bits we read from the GPIO
+        AND r3, r0, #1
+        LSL r3, r3, #3
+        ORR r4, r4, r3
+
+        AND r3, r0, #2
+        LSL r3, r3, #1
+        ORR r4, r4, r3
+
+        AND r3, r0, #4
+        LSR r3, r3, #3
+        ORR r4, r4, r3
+
+        AND r3, r0, #8
+        LSR r3, r3, #1
+        ORR r4, r4, r3
+        
+        ; move the result into return register
+        MOV r0, r4
+
+        ; restore regs and return
+        POP {lr, r4}
+        MOV pc, lr
+
 illuminate_LEDs:
-        PUSH {lr} ; save regs
+        PUSH {lr, r0, r1} ; save regs
 
         ; make sure we're not writing extra bits to the gpio
         AND  r0, r0, #0xF
@@ -357,7 +396,7 @@ illuminate_LEDs:
         STRB r0, [r1, #0x3FC]
 
         ; restore regs and return
-        POP {lr}
+        POP {lr, r0, r1}
         MOV pc, lr
 
 
