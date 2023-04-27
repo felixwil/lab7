@@ -392,13 +392,22 @@ illuminate_LEDs:
         ; make sure we're not writing extra bits to the gpio
         AND  r0, r0, #0xF
 
+        CMP r0, #0
+        BEQ zero
+        CMP r0, #1
+        BEQ one
         CMP r0, #2
         BEQ two
         CMP r0, #3
         BEQ three
         CMP r0, #4
-        BEW four
-
+        BEQ four
+zero:
+        MOV r0, #0
+        B LEDS_done
+one:
+        MOV r0, #1
+        B LEDS_done
 two:
         MOV r0, #3
         B LEDS_done

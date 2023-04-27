@@ -164,7 +164,7 @@ gameOver:
 	LDR r0, ptr_to_gameOverStringTwo
 	BL output_string						; Print the second string
 
-	BL read_character
+	BL simple_read_character
 	CMP r0, #0x63
 	BEQ resetLives						; Branch if user wants to continue
 
