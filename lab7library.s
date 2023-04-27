@@ -317,7 +317,7 @@ timer_interrupt_init:
 
 read_from_push_btns:
         ; save registers we'll be using
-        PUSH {lr, r4}
+        PUSH {lr, r4-r11}
 
         ; setting regs we'll be using
         MOV r4, #0
@@ -327,6 +327,8 @@ read_from_push_btns:
         MOV r1, #0x7000
         MOVT r1, #0x4000
         LDRB r0, [r1, #0x3FC]
+        ; Set a counter variable
+        MOV r5, #0
 
         ; reversing the order of the bits we read from the GPIO
         AND r3, r0, #1
@@ -349,7 +351,7 @@ read_from_push_btns:
         MOV r0, r4
 
         ; restore regs and return
-        POP {lr, r4}
+        POP {lr, r4-r11}
         MOV pc, lr
 
 illuminate_LEDs:
