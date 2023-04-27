@@ -20,7 +20,9 @@
 	.global gpio_btn_and_LED_init
 
 gameOverStringOne:	.string "Game Over! Score: ",0
-gameOVerStringTwo:	.string "Press c to continue, or any other key to quit.", 0
+gameOverStringTwo:	.string "Press c to continue, or any other key to quit.", 0
+gamePaused:			.string "Paused", 0
+gameUnpaused:		.string "      ", 0
 scorePlaceholder:	.string "       ", 0
 xescapeStringBuffer: .string "                 ",0
 yescapeStringBuffer: .string "                 ",0
@@ -45,7 +47,9 @@ topBottomBorder:	.string "+---------------------+", 0
 ; Pointers to memory locations
 
 ptr_to_gameOverStringOne:		.word gameOverStringOne
-ptr_to_gameOverStringTwo:		.word gameOVerStringTwo
+ptr_to_gameOverStringTwo:		.word gameOverStringTwo
+ptr_to_gamePaused:				.word gamePaused
+ptr_to_gameUnpaused:			.word gameUnpaused
 ptr_to_scorePlaceholder:		.word scorePlaceholder
 ptr_to_xescapeStringBuffer: 	.word xescapeStringBuffer
 ptr_to_yescapeStringBuffer: 	.word yescapeStringBuffer
@@ -73,6 +77,7 @@ lab7:
 	BL uart_init
 	BL timer_interrupt_init
 	BL gpio_btn_and_LED_init
+	BL gpio_interrupt_init
 
 	BL resetColor
 
@@ -113,6 +118,8 @@ resetLives:
 	MOV r8, #4
 	LDR r7, ptr_to_lives
 	STRB r8, [r7]	
+	; Turn timer back on
+	BL timerOn
 
 mainloop:
 	; Get lives and light up correct amount of LEDS
@@ -124,12 +131,7 @@ mainloop:
 	B mainloop
 
 gameOver:
-	; Disable timer interruts
-    MOV r11, #0x0018
-    MOVT r11, #0x4003   ; load address
-    LDRW r4, [r11]      ; load value
-    ORR r4, r4, #0      ; write 0 to bit 0
-    STRW r4, [r11]      ; write back
+	BL timerOff
 
 	; Print Game over, score, and options
 	MOV r0, #4
@@ -155,6 +157,7 @@ gameOver:
 
 	POP {lr}	  ; Restore lr from stack
 	mov pc, lr
+
 
 Timer_Handler:
     ; Save the registers
@@ -280,8 +283,6 @@ checkDoubleBounce:
 	LDR r10, ptr_to_ballyPosition
 	STRB r8, [r10]					; Store new x and y positions to memory
 
-
-
 printBall:
 	; Print " " where ball currently is to erase it (this is where we need r5 and r6 unchanged)
 	MOV r0, r5
@@ -301,15 +302,87 @@ printBall:
 	MOV r0, #0x6F
 	BL output_character				; Print a "o" character
 
-
-
-
-    ; Update position based on direction stored in current_direction and switch_speed
-
     ; Restore the registers
     POP {lr, r4-r11}
-
 	BX lr       	; Return
+
+
+Switch_Handler:
+	; Save registers
+    PUSH {lr, r4-r11}
+
+    ; Clear the interrupt, using load -> or -> store to not overwrite other data
+    MOV  r11, #0x541c			
+    MOVT r11, #0x4002			; Address for interrupt
+    LDRB r4, [r11]          	; Load interrup value
+    ORR r4, r4, #8          	; Set bit 4 to 1
+	STRB r4, [r11]				; Store back to clear interrupt
+
+	; Load the pause state
+	LDR r4, ptr_to_pauseState
+	LDRB r5, [r4]
+	CMP r5, #0					; Check if paused or unpaused
+	BEQ pause
+
+	; Change game state
+	MOV r5, #0
+	MOV r0, #7
+	MOV r1, #9
+	BL setCursorxy				; Set cursor to middle of the board
+	LDR r0, ptr_to_gameUnpaused 
+	BL output_string			; Print unpause spaces
+	BL timerOn					; Turn the timer back on
+	B switchDone				; Exit handler
+
+pause:
+	; Turn off the timer
+	BL timerOff
+	; Change game state
+	MOV r5, #1
+	; Set cursor to middle of the board
+	MOV r0, #7
+	MOV r1, #9
+	BL setCursorxy
+	; Print paused
+	LDR r0, ptr_to_gamePaused
+	BL output_string
+
+    ; Update the refresh frequency, r4 contains clicks
+    ;MOV r5, #0x2400
+    ;MOVT r5, #0x00F4    ; load 16,000,000 into r5
+    ;UDIV r5, r5, r4     ; divide by r4 to get new frequency then store back
+    ;MOV r11, #0x0028
+    ;MOVT r11, #0x4003   ; load frequency address 
+    ;STRW r5, [r11]      ; store new frequency
+
+switchDone:
+	; Restore registers
+    POP {lr, r4-r11}
+	; Return to interrupted instruction
+    BX lr
+
+
+timerOff:
+	MOV {lr, r4-r11}
+	; Disable timer interruts
+    MOV r11, #0x0018
+    MOVT r11, #0x4003   ; load address
+    LDRW r4, [r11]      ; load value
+    ORR r4, r4, #0      ; write 0 to bit 0
+    STRW r4, [r11]      ; write back
+	POP {lr, r4-r11}
+	MOV pc, lr
+
+
+timerOn:
+	MOV {lr, r4-r11}
+	; Enable timer interruts
+    MOV r11, #0x0018
+    MOVT r11, #0x4003   ; load address
+    LDRW r4, [r11]      ; load value
+    ORR r4, r4, #1      ; write 0 to bit 0
+    STRW r4, [r11]      ; write back
+	MOV pc, lr
 
 
 escapeSequence:
