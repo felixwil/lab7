@@ -17,6 +17,86 @@
 		.global uart_interrupt_init
         .global gpio_interrupt_init
         .global timer_interrupt_init
+        .global disable_timer
+
+read_character:
+        PUSH {lr, r7, r8}   ; Store register lr on stack
+
+checkread:
+        MOV r7, #0xC018 ; r7 = checkaddr
+        MOVT r7, #0x4000
+        LDRB r3, [r7]     ; r3 = r7[0]
+        AND r3, r3, #0x10 ; bit twiddling
+        CMP r3, #0
+        BGT checkread
+
+        MOV r8, #0xC000
+        MOVT r8, #0x4000
+        LDRB r0, [r8] ; r0 = (r8 = 0x4000C000)[0]
+
+        POP {lr, r7, r8}
+        mov pc, lr
+
+
+gpio_btn_and_LED_init:
+        PUSH {lr, r0, r1}
+        ; Enable clock for port F and D
+        MOV r1, #0xE608
+        MOVT r1, #0x400F
+        mov r0, #0x2B
+        STRB r0, [r1]
+
+        ; Setting the direction for port F, 0 button, 1 for RGB LEDs, for tiva board
+        MOV r1, #0x5400
+        MOVT r1, #0x4002
+        mov r0, #0x0E
+        STRB r0, [r1]
+
+        ; Setting the direction for port B, 4 LEDs
+        MOV r1, #0x5400
+        MOVT r1, #0x4000
+        mov r0, #0x0F
+        STRB r0, [r1]
+
+        ; Setting the direction for port D, 0 button, for keypad
+        MOV r1, #0x7400
+        MOVT r1, #0x4000
+        mov r0, #0x00
+        STRB r0, [r1]
+
+        ; Set the pin to be digital for the tiva button and LED's
+        MOV r1, #0x551C
+        MOVT r1, #0x4002
+        mov r0, #0x1F
+        STRB r0, [r1]
+
+        ; Set the pin to be digital for the base board LED's
+        MOV r1, #0x551C
+        MOVT r1, #0x4000
+        mov r0, #0x0F
+        STRB r0, [r1]
+
+        ; Set the pin to be digital for the button on base board
+        MOV r1, #0x751C
+        MOVT r1, #0x4000
+        mov r0, #0x0F
+        STRB r0, [r1]
+
+        ; Set the PUR for pin 4 for the push button
+        MOV r1, #0x5510
+        MOVT r1, #0x4002
+        mov r0, #0x10
+        STRB r0, [r1]
+
+        ; Set the PUR for pin 4 for the push button
+        MOV r1, #0x751C
+        MOVT r1, #0x4000
+        mov r0, #0x0F
+        STRB r0, [r1]
+
+        POP {lr, r0, r1}
+        MOV pc, lr
+
 
 uart_init:
         PUSH {lr, r0, r1}  ; Store register lr on stack
@@ -196,6 +276,14 @@ gpio_interrupt_init:
         POP {lr, r4-r11}           ; restore saved regs
         MOV pc, lr                 ; return to source call             ; return to source call
 
+disable_timer:
+    MOV r11, #0xE604
+    MOVT r11, #0x400F   ; load address
+    LDRW r4, [r11]      ; load value
+    BFC r4, #0, #1      ; write 1 to bit 0
+    STRW r4, [r11]      ; store back
+    MOV pc, lr
+
 timer_interrupt_init:
     ; Connect clock to timer
     MOV r11, #0xE604
@@ -222,7 +310,7 @@ timer_interrupt_init:
     MOV r11, #0x0004
     MOVT r11, #0x4003   ; load address
     LDRW r4, [r11]      ; load value
-    AND r4, r4, #0xFE      ; write 2 to first two bits
+    AND r4, r4, #0xFE   ; write 2 to first two bits
     ORR r4, r4, #2      ; write 2 to first two bits
     STRW r4, [r11]      ; write back
 
@@ -230,7 +318,7 @@ timer_interrupt_init:
     MOV r11, #0x0028
     MOVT r11, #0x4003   ; load address
     MOV r4, #0x2400
-    MOVT r4, #0x00F4    ; load frequency
+    MOVT r4, #0x0064    ; load frequency
     STRW r4, [r11]      ; store frequency
 
     ; Enable timer to interrupt processor
@@ -253,6 +341,24 @@ timer_interrupt_init:
     LDRW r4, [r11]      ; load value
     ORR r4, r4, #1      ; write 1 to bit 0
     STRW r4, [r11]
+
+    MOV pc, lr
+
+
+illuminate_LEDs:
+        PUSH {lr} ; save regs
+
+        ; make sure we're not writing extra bits to the gpio
+        AND  r0, r0, #0xF
+
+        ; write the bits for the LEDs to the gpio
+        MOV r1, #0x5000
+        MOVT r1, #0x4000
+        STRB r0, [r1, #0x3FC]
+
+        ; restore regs and return
+        POP {lr}
+        MOV pc, lr
 
 
 output_character:

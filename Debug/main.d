@@ -2,4 +2,5 @@
 
 main.obj: ../main.c
 
-../main.c: 
+../main.c:
+

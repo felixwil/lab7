@@ -1,31 +1,31 @@
 ******************************************************************************
                   TI ARM Linker PC v20.2.7                     
 ******************************************************************************
->> Linked Tue Apr 25 13:43:00 2023
+>> Linked Wed Apr 26 15:15:07 2023
 
 OUTPUT FILE NAME:   <lab7.out>
-ENTRY POINT SYMBOL: "_c_int00_noinit_noargs"  address: 00000521
+ENTRY POINT SYMBOL: "_c_int00_noinit_noargs"  address: 000005fd
 
 
 MEMORY CONFIGURATION
 
          name            origin    length      used     unused   attr    fill
 ----------------------  --------  ---------  --------  --------  ----  --------
-  FLASH                 00000000   00040000  00000574  0003fa8c  R  X
-  SRAM                  20000000   00008000  000007e8  00007818  RW X
+  FLASH                 00000000   00040000  00000650  0003f9b0  R  X
+  SRAM                  20000000   00008000  00000944  000076bc  RW X
 
 
 SEGMENT ALLOCATION MAP
 
 run origin  load origin   length   init length attrs members
 ----------  ----------- ---------- ----------- ----- -------
-00000000    00000000    00000574   00000574    r-x
+00000000    00000000    00000650   00000650    r-x
   00000000    00000000    0000026c   0000026c    r-- .intvecs
-  0000026c    0000026c    00000308   00000308    r-x .text
-20000000    20000000    000005e8   000005e8    r-x
-  20000000    20000000    000005e8   000005e8    r-x .data
-200005e8    200005e8    00000200   00000000    rw-
-  200005e8    200005e8    00000200   00000000    rw- .stack
+  0000026c    0000026c    000003e4   000003e4    r-x .text
+20000000    20000000    00000744   00000744    r-x
+  20000000    20000000    00000744   00000744    r-x .data
+20000748    20000748    00000200   00000000    rw-
+  20000748    20000748    00000200   00000000    rw- .stack
 
 
 SECTION ALLOCATION MAP
@@ -36,35 +36,37 @@ section   page    origin      length       input sections
 .intvecs   0    00000000    0000026c     
                   00000000    0000026c     tm4c123gh6pm_startup_ccs.obj (.intvecs)
 
-.text      0    0000026c    00000308     
-                  0000026c    000002b2     lab7library.obj (.text)
-                  0000051e    00000002     --HOLE-- [fill = 0]
-                  00000520    0000002c     rtsv7M4_T_le_v4SPD16_eabi.lib : boot_cortex_m.c.obj (.text:_c_int00_noinit_noargs:_c_int00_noinit_noargs)
-                  0000054c    0000000c     tm4c123gh6pm_startup_ccs.obj (.text)
-                  00000558    0000000a     main.obj (.text)
-                  00000562    00000004     rtsv7M4_T_le_v4SPD16_eabi.lib : pre_init.c.obj (.text:_system_pre_init)
-                  00000566    00000004                                   : exit.c.obj (.text:abort:abort)
-                  0000056a    00000002     --HOLE-- [fill = 0]
-                  0000056c    00000008     lab7.obj (.tramp.lab7.1)
+.text      0    0000026c    000003e4     
+                  0000026c    00000390     lab7library.obj (.text)
+                  000005fc    0000002c     rtsv7M4_T_le_v4SPD16_eabi.lib : boot_cortex_m.c.obj (.text:_c_int00_noinit_noargs:_c_int00_noinit_noargs)
+                  00000628    0000000c     tm4c123gh6pm_startup_ccs.obj (.text)
+                  00000634    0000000a     main.obj (.text)
+                  0000063e    00000004     rtsv7M4_T_le_v4SPD16_eabi.lib : pre_init.c.obj (.text:_system_pre_init)
+                  00000642    00000004                                   : exit.c.obj (.text:abort:abort)
+                  00000646    00000002     --HOLE-- [fill = 0]
+                  00000648    00000008     lab7.obj (.tramp.lab7.1)
 
 .cinit     0    00000000    00000000     UNINITIALIZED
 
 .init_array 
 *          0    00000000    00000000     UNINITIALIZED
 
-.data      0    20000000    000005e8     
-                  20000000    000005b6     lab7.obj (.data)
-                  200005b6    00000002     --HOLE-- [fill = 0]
-                  200005b8    00000008     lab7library.obj (.tramp.output_string.1)
-                  200005c0    00000008     lab7library.obj (.tramp.int2string.1)
-                  200005c8    00000008     lab7library.obj (.tramp.output_character.1)
-                  200005d0    00000008     lab7library.obj (.tramp.timer_interrupt_init.1)
-                  200005d8    00000008     lab7library.obj (.tramp.uart_interrupt_init.1)
-                  200005e0    00000008     lab7library.obj (.tramp.uart_init.1)
+.data      0    20000000    00000744     
+                  20000000    000006f4     lab7.obj (.data)
+                  200006f4    00000008     lab7library.obj (.tramp.read_character.1)
+                  200006fc    00000008     lab7library.obj (.tramp.int2string.1)
+                  20000704    00000008     lab7library.obj (.tramp.output_string.1)
+                  2000070c    00000008     lab7library.obj (.tramp.disable_timer.1)
+                  20000714    00000008     lab7library.obj (.tramp.illuminate_LEDs.1)
+                  2000071c    00000008     lab7library.obj (.tramp.timer_interrupt_init.1)
+                  20000724    00000008     lab7library.obj (.tramp.output_character.1)
+                  2000072c    00000008     lab7library.obj (.tramp.gpio_btn_and_LED_init.1)
+                  20000734    00000008     lab7library.obj (.tramp.uart_interrupt_init.1)
+                  2000073c    00000008     lab7library.obj (.tramp.uart_init.1)
 
-.stack     0    200005e8    00000200     UNINITIALIZED
-                  200005e8    00000004     rtsv7M4_T_le_v4SPD16_eabi.lib : boot_cortex_m.c.obj (.stack)
-                  200005ec    000001fc     --HOLE--
+.stack     0    20000748    00000200     UNINITIALIZED
+                  20000748    00000004     rtsv7M4_T_le_v4SPD16_eabi.lib : boot_cortex_m.c.obj (.stack)
+                  2000074c    000001fc     --HOLE--
 
 __llvm_prf_cnts 
 *          0    20000000    00000000     UNINITIALIZED
@@ -74,12 +76,12 @@ MODULE SUMMARY
        Module                         code   ro data   rw data
        ------                         ----   -------   -------
     .\
-       lab7.obj                       1470   0         0      
-       lab7library.obj                738    0         0      
+       lab7.obj                       1788   0         0      
+       lab7library.obj                992    0         0      
        tm4c123gh6pm_startup_ccs.obj   12     620       0      
        main.obj                       10     0         0      
     +--+------------------------------+------+---------+---------+
-       Total:                         2230   620       0      
+       Total:                         2802   620       0      
                                                               
     C:\ti\ccs1220\ccs\tools\compiler\ti-cgt-arm_20.2.7.LTS\lib\rtsv7M4_T_le_v4SPD16_eabi.lib
        boot_cortex_m.c.obj            44     0         0      
@@ -90,7 +92,7 @@ MODULE SUMMARY
                                                               
        Stack:                         0      0         512    
     +--+------------------------------+------+---------+---------+
-       Grand Total:                   2282   620       512    
+       Grand Total:                   2854   620       512    
 
 
 FAR CALL TRAMPOLINES
@@ -99,67 +101,102 @@ callee name               trampoline name
    callee addr  tramp addr   call addr  call info
 --------------  -----------  ---------  ----------------
 lab7                      $Tramp$TT$L$PI$$lab7
-   200000bd     0000056c     0000055a   main.obj (.text)
-output_string             $Tramp$TT$L$PI$$output_string
-   000004b9     200005b8     200002d2   lab7.obj (.data)
-                             200002ea   lab7.obj (.data)
-                             20000310   lab7.obj (.data)
-                             20000324   lab7.obj (.data)
-                             2000036a   lab7.obj (.data)
-                             2000054e   lab7.obj (.data)
-                             20000562   lab7.obj (.data)
-                             2000057c   lab7.obj (.data)
-                             20000590   lab7.obj (.data)
-                             200005a6   lab7.obj (.data)
+   20000115     00000648     00000636   main.obj (.text)
+read_character            $Tramp$TT$L$PI$$read_character
+   0000026d     200006f4     2000019e   lab7.obj (.data)
 int2string                $Tramp$TT$L$PI$$int2string
-   000004d5     200005c0     200002a6   lab7.obj (.data)
-                             200002b6   lab7.obj (.data)
-output_character          $Tramp$TT$L$PI$$output_character
-   00000491     200005c8     200000d2   lab7.obj (.data)
-                             200001fe   lab7.obj (.data)
-                             2000021a   lab7.obj (.data)
-                             20000288   lab7.obj (.data)
-                             20000290   lab7.obj (.data)
-                             200002c2   lab7.obj (.data)
-                             200002da   lab7.obj (.data)
-                             200002f2   lab7.obj (.data)
-                             2000033c   lab7.obj (.data)
-                             2000034c   lab7.obj (.data)
-                             20000396   lab7.obj (.data)
-                             200003aa   lab7.obj (.data)
-                             200003b6   lab7.obj (.data)
-                             200003be   lab7.obj (.data)
-                             200003c6   lab7.obj (.data)
+   000005b3     200006fc     20000182   lab7.obj (.data)
                              200003ce   lab7.obj (.data)
-                             200003d6   lab7.obj (.data)
-                             200003e6   lab7.obj (.data)
-                             200003ee   lab7.obj (.data)
-                             200003f6   lab7.obj (.data)
-                             20000558   lab7.obj (.data)
-                             20000586   lab7.obj (.data)
+                             200003de   lab7.obj (.data)
+                             20000446   lab7.obj (.data)
+output_string             $Tramp$TT$L$PI$$output_string
+   00000597     20000704     20000176   lab7.obj (.data)
+                             2000018a   lab7.obj (.data)
+                             2000019a   lab7.obj (.data)
+                             200003fa   lab7.obj (.data)
+                             20000412   lab7.obj (.data)
+                             20000438   lab7.obj (.data)
+                             2000044e   lab7.obj (.data)
+                             20000462   lab7.obj (.data)
+                             200004a8   lab7.obj (.data)
+                             2000068c   lab7.obj (.data)
+                             200006a0   lab7.obj (.data)
+                             200006ba   lab7.obj (.data)
+                             200006ce   lab7.obj (.data)
+                             200006e4   lab7.obj (.data)
+disable_timer             $Tramp$TT$L$PI$$disable_timer
+   0000049b     2000070c     20000162   lab7.obj (.data)
+illuminate_LEDs           $Tramp$TT$L$PI$$illuminate_LEDs
+   00000557     20000714     20000158   lab7.obj (.data)
 timer_interrupt_init      $Tramp$TT$L$PI$$timer_interrupt_init
-   000003ed     200005d0     200000c6   lab7.obj (.data)
+   000004b1     2000071c     20000142   lab7.obj (.data)
+output_character          $Tramp$TT$L$PI$$output_character
+   0000056f     20000724     2000012a   lab7.obj (.data)
+                             200002ca   lab7.obj (.data)
+                             200002e6   lab7.obj (.data)
+                             200002f6   lab7.obj (.data)
+                             200002fa   lab7.obj (.data)
+                             200002fe   lab7.obj (.data)
+                             20000302   lab7.obj (.data)
+                             20000306   lab7.obj (.data)
+                             2000030a   lab7.obj (.data)
+                             2000030e   lab7.obj (.data)
+                             20000312   lab7.obj (.data)
+                             20000316   lab7.obj (.data)
+                             2000031a   lab7.obj (.data)
+                             2000031e   lab7.obj (.data)
+                             20000322   lab7.obj (.data)
+                             20000326   lab7.obj (.data)
+                             2000032a   lab7.obj (.data)
+                             2000032e   lab7.obj (.data)
+                             20000332   lab7.obj (.data)
+                             20000336   lab7.obj (.data)
+                             2000033a   lab7.obj (.data)
+                             2000033e   lab7.obj (.data)
+                             20000342   lab7.obj (.data)
+                             20000346   lab7.obj (.data)
+                             200003b0   lab7.obj (.data)
+                             200003b8   lab7.obj (.data)
+                             200003ea   lab7.obj (.data)
+                             20000402   lab7.obj (.data)
+                             2000041a   lab7.obj (.data)
+                             2000047a   lab7.obj (.data)
+                             2000048a   lab7.obj (.data)
+                             200004d8   lab7.obj (.data)
+                             200004ec   lab7.obj (.data)
+                             200004f8   lab7.obj (.data)
+                             20000500   lab7.obj (.data)
+                             20000508   lab7.obj (.data)
+                             20000510   lab7.obj (.data)
+                             20000518   lab7.obj (.data)
+                             20000528   lab7.obj (.data)
+                             20000530   lab7.obj (.data)
+                             20000538   lab7.obj (.data)
+                             20000696   lab7.obj (.data)
+                             200006c4   lab7.obj (.data)
+gpio_btn_and_LED_init     $Tramp$TT$L$PI$$gpio_btn_and_LED_init
+   00000295     2000072c     2000011e   lab7.obj (.data)
 uart_interrupt_init       $Tramp$TT$L$PI$$uart_interrupt_init
-   00000315     200005d8     200000c2   lab7.obj (.data)
+   000003c3     20000734     2000011a   lab7.obj (.data)
 uart_init                 $Tramp$TT$L$PI$$uart_init
-   0000026d     200005e0     200000be   lab7.obj (.data)
+   0000031b     2000073c     20000116   lab7.obj (.data)
 
-[7 trampolines]
-[38 trampoline calls]
+[11 trampolines]
+[69 trampoline calls]
 
 
 GLOBAL SYMBOLS: SORTED ALPHABETICALLY BY Name 
 
 address   name                   
 -------   ----                   
-00000567  C$$EXIT                
-0000054d  ResetISR               
-200005b7  Switch_Handler         
-200000ff  Timer_Handler          
-20000225  UART0_Handler          
-200007e8  __STACK_END            
+00000643  C$$EXIT                
+00000629  ResetISR               
+200006f5  Switch_Handler         
+200001ad  Timer_Handler          
+2000034d  UART0_Handler          
+20000948  __STACK_END            
 00000200  __STACK_SIZE           
-200007e8  __STACK_TOP            
+20000948  __STACK_TOP            
 ffffffff  __TI_pprof_out_hndl    
 ffffffff  __TI_prof_data_size    
 ffffffff  __TI_prof_data_start   
@@ -167,23 +204,27 @@ ffffffff  __TI_prof_data_start
 ffffffff  __binit__              
 ffffffff  __c_args__             
 UNDEFED   __mpu_init             
-200005e8  __stack                
+20000748  __stack                
 20000000  __start___llvm_prf_cnts
 20000000  __stop___llvm_prf_cnts 
-00000521  _c_int00_noinit_noargs 
-00000563  _system_pre_init       
-00000567  abort                  
+000005fd  _c_int00_noinit_noargs 
+0000063f  _system_pre_init       
+00000643  abort                  
 ffffffff  binit                  
+0000049b  disable_timer          
 00000000  g_pfnVectors           
-00000357  gpio_interrupt_init    
-000004d5  int2string             
-200000bd  lab7                   
-00000559  main                   
-00000491  output_character       
-000004b9  output_string          
-000003ed  timer_interrupt_init   
-0000026d  uart_init              
-00000315  uart_interrupt_init    
+00000295  gpio_btn_and_LED_init  
+00000405  gpio_interrupt_init    
+00000557  illuminate_LEDs        
+000005b3  int2string             
+20000115  lab7                   
+00000635  main                   
+0000056f  output_character       
+00000597  output_string          
+0000026d  read_character         
+000004b1  timer_interrupt_init   
+0000031b  uart_init              
+000003c3  uart_interrupt_init    
 
 
 GLOBAL SYMBOLS: SORTED BY Symbol Address 
@@ -193,28 +234,32 @@ address   name
 00000000  __TI_static_base__     
 00000000  g_pfnVectors           
 00000200  __STACK_SIZE           
-0000026d  uart_init              
-00000315  uart_interrupt_init    
-00000357  gpio_interrupt_init    
-000003ed  timer_interrupt_init   
-00000491  output_character       
-000004b9  output_string          
-000004d5  int2string             
-00000521  _c_int00_noinit_noargs 
-0000054d  ResetISR               
-00000559  main                   
-00000563  _system_pre_init       
-00000567  C$$EXIT                
-00000567  abort                  
+0000026d  read_character         
+00000295  gpio_btn_and_LED_init  
+0000031b  uart_init              
+000003c3  uart_interrupt_init    
+00000405  gpio_interrupt_init    
+0000049b  disable_timer          
+000004b1  timer_interrupt_init   
+00000557  illuminate_LEDs        
+0000056f  output_character       
+00000597  output_string          
+000005b3  int2string             
+000005fd  _c_int00_noinit_noargs 
+00000629  ResetISR               
+00000635  main                   
+0000063f  _system_pre_init       
+00000643  C$$EXIT                
+00000643  abort                  
 20000000  __start___llvm_prf_cnts
 20000000  __stop___llvm_prf_cnts 
-200000bd  lab7                   
-200000ff  Timer_Handler          
-20000225  UART0_Handler          
-200005b7  Switch_Handler         
-200005e8  __stack                
-200007e8  __STACK_END            
-200007e8  __STACK_TOP            
+20000115  lab7                   
+200001ad  Timer_Handler          
+2000034d  UART0_Handler          
+200006f5  Switch_Handler         
+20000748  __stack                
+20000948  __STACK_END            
+20000948  __STACK_TOP            
 ffffffff  __TI_pprof_out_hndl    
 ffffffff  __TI_prof_data_size    
 ffffffff  __TI_prof_data_start   
@@ -223,4 +268,4 @@ ffffffff  __c_args__
 ffffffff  binit                  
 UNDEFED   __mpu_init             
 
-[32 symbols]
+[36 symbols]
