@@ -19,6 +19,9 @@
     .global timer_interrupt_init
 	.global gpio_btn_and_LED_init
 
+gameStartOne:		.string "Controls: use a and d keys to move the paddle right and left", 0
+gameStartTwo:		.string "Press and hold number of switches to choose the number of rows of bricks", 0
+gameStartThree:		.string "Press any key on the board to continue and play", 0
 gameOverStringOne:	.string "Game Over! Score: ",0
 gameOverStringTwo:	.string "Press c to continue, or any other key to quit.", 0
 gamePaused:			.string "Paused", 0
@@ -46,6 +49,9 @@ topBottomBorder:	.string "+---------------------+", 0
 
 ; Pointers to memory locations
 
+ptr_to_gameStartOne:			.word gameStartOne
+ptr_to_gameStartTwo:			.word gameStartTwo
+ptr_to_gameStartThree:			.word gameStartThree
 ptr_to_gameOverStringOne:		.word gameOverStringOne
 ptr_to_gameOverStringTwo:		.word gameOverStringTwo
 ptr_to_gamePaused:				.word gamePaused
@@ -74,22 +80,36 @@ ptr_to_resetColorString:   		.word resetColorString
 lab7:
 	PUSH {lr}   ; Store lr to stack
 
+	; Initialization functions
 	BL uart_init
 	BL timer_interrupt_init
 	BL gpio_btn_and_LED_init
 	BL gpio_interrupt_init
-
 	BL resetColor
 
+	; Clear the page
 	MOV r0, #0xc
 	BL output_character
 
+	; Print the game start instructions
+	LDR r0, ptr_to_gameStartOne
+	output_string					; Print first instruction
+	MOV r0, #0
+	MOV r1, #1
+	BL setCursorxy					; Move cursor to next row
+	LDR r0, ptr_to_gameStartTwo		
+	output_string					; Print second instruction
+	MOV r0, #0
+	MOV r1, #2
+	BL setCursorxy					; Move cursor to next row
+	LDR r0, ptr_to_gameStartThree		
+	output_string					; Print third instruction
+
+	
+
+	; Print the board and the bricks
 	BL printBoard
 	BL displayBricks
-
-	;MOV r0, #1
-	;MOV r1, #16
-	;BL setCursorxy
 
 	BL resetColor
 	MOV r2, #1
@@ -346,14 +366,6 @@ pause:
 	; Print paused
 	LDR r0, ptr_to_gamePaused
 	BL output_string
-
-    ; Update the refresh frequency, r4 contains clicks
-    ;MOV r5, #0x2400
-    ;MOVT r5, #0x00F4    ; load 16,000,000 into r5
-    ;UDIV r5, r5, r4     ; divide by r4 to get new frequency then store back
-    ;MOV r11, #0x0028
-    ;MOVT r11, #0x4003   ; load frequency address 
-    ;STRW r5, [r11]      ; store new frequency
 
 switchDone:
 	; Restore registers
