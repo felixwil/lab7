@@ -126,10 +126,21 @@ lab7:
  	; Sample test code starts here
 
 resetLives:
+	; Clear the page
 	; Reset lives to 4
 	MOV r8, #4
 	LDR r7, ptr_to_lives
-	STRB r8, [r7]	
+	STRB r8, [r7]
+	MOV r0, #0xc
+	BL output_character
+
+	; Print the board and the bricks
+	BL printBoard
+	BL displayBricks
+
+	BL resetColor
+	MOV r2, #0
+	BL movePaddle
 	; Turn timer back on
 	BL timerOn
 
@@ -203,9 +214,7 @@ Timer_Handler:
 	LDRSB r7, [r7]
 	LDR r8, ptr_to_yDelta
 	LDRSB r8, [r8]					; Load current x and y deltas into r7 and r8 (dont change these)
-	CMP r8, #2
-	IT EQ
-	LSR r8, r8, #1
+
 	ADD r9, r7, r5
 	ADD r10, r8, r6					; Add x and y postions to their respective deltas and store into r9 and r10
 
@@ -229,24 +238,42 @@ checkWall:
 checkRoof:
 	; See if ball hits roof
 	; Call btouchTop, if r = 1, update deltas
+	PUSH {r2, r3, r4, r8}
+
+	CMP r8, #2
+	IT EQ
+	LSREQ r8, r8, #1
+
 	BL btouchTop
+	POP {r2, r3, r4, r8}
 	CMP r1, #1
 	BNE checkBrick					; If no touch, continue to next check
 
 	MOV r9, #-1
 	MULS r8, r8, r9					; Reverse y delta
+
 	B checkDoubleBounce				; Jump to checkDoubleBounce for if it double bounces
 
 checkBrick:
 	; See if ball hits brick
 	; Call btouchBrick, if r1 = 1, update deltas, NEEDS TO KNOW IF HITTING VERTICAL OR HORIZONTAL FACE
 	; Set brick state for that brick to 0, erase the brick, update score
-
+	PUSH {r8}
+	CMP r8, #2
+	IT EQ
+	LSREQ r8, r8, #1
+	POP {r8}
 
 checkBottom:
 	; See if ball hits bottom
 	; Call btouchBot, if r1 = 1 then lose life, reset paddle and ball position, and x,y delta's
+	PUSH {r8}
+	CMP r8, #2
+	IT EQ
+	LSREQ r8, r8, #1
+
 	BL btouchBot
+	POP {r8}
 	CMP r1, #1
 	BNE checkPaddle					; If no touch, jump to next check
 
@@ -287,6 +314,16 @@ checkPaddle:
 	; Call btouchPaddle
 	; return -1 if ball not on paddle, else the position on the paddle
 	; which it is touching
+	PUSH {r8}
+	CMP r8, #-1
+	IT LT
+	LSRLT r8, r8, #1
+
+	BL btouchPaddle
+	POP {r8}
+	CMP r1, #-1
+	BEQ checkDoubleBounce
+
 	BL updateBallDeltaForPaddleBounce
 	B checkDoubleBounce
 
@@ -738,7 +775,7 @@ setupForBounceChecks:
 ; return true/false if ball is on a brick
 ; x and y values in r2, r3, value returned in r1
 btouchBrick:
-	PUSH {lr, r5}
+	PUSH {lr, r5, r6}
 	; return false if y is greater than 6 or equal to 1
 	CMP r3, #1 ; y == 1
 	BEQ btouchBrickfalse ; return false
@@ -747,17 +784,19 @@ btouchBrick:
 	; shift brickState by x*7 places
 	ldr r1, ptr_to_brickState
 	ldrw r1, [r1]
+	MOV r5, #3
+	DIV r6, r2, r5
 	MOV r5, #7
-	MUL r5, r2, r5 ; r5 = x*7
+	MUL r5, r6, r5 ; r5 = x*7
 	LSR r1, r1, r5 ; brickstate >>= r5
 	AND r1, r1, #1 ; brickstate & 1
 
-	POP  {pc, r5}
+	POP  {pc, r5, r6}
 
 btouchBrickfalse:
 
 	MOV r1, #0
-	POP  {pc, r5}
+	POP  {pc, r5, r6}
 
 
 ; return true/false if ball is on a side

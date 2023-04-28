@@ -189,90 +189,90 @@ uart_init:
 uart_interrupt_init:
         PUSH {lr, r4-r11}          ; store regs
         ; Configure UART for interrupts
-        
+
         MOV  r11, #0xc038
         MOVT r11, #0x4000          ; setting the address
         LDRW r4, [r11]             ; loading the data into r4
-        
+
         ORR r4, r4, #16             ; r4 |= #8
-        
+
         MOV  r11, #0xc038
         MOVT r11, #0x4000          ; setting the address
         STRW r4, [r11]             ; storing the data from r4
         ; Set processor to allow for interrupts from UART0
-        
+
         MOV  r11, #0xe100
         MOVT r11, #0xe000          ; setting the address
         LDRW r4, [r11]             ; loading the data into r4
-        
+
         ORR r4, r4, #32            ; r4 |= #16
-        
+
         MOV  r11, #0xe100
         MOVT r11, #0xe000          ; setting the address
         STRW r4, [r11]             ; storing the data from r4
-        
+
         POP {lr, r4-r11}           ; restore saved regs
         MOV pc, lr                 ; return to source call
 
 gpio_interrupt_init:
         PUSH {lr, r4-r11}          ; store regs
-        
+
         ; Set interrupt to be edge sensitive
         MOV  r11, #0x5404
         MOVT r11, #0x4002          ; setting the address
         LDRW r4, [r11]             ; loading the data into r4
-        
+
         AND r4, r4, #0xfe          ; r4 &= #0xf7
-        
+
         MOV  r11, #0x5404
         MOVT r11, #0x4002          ; setting the address
         STRW r4, [r11]             ; storing the data from r4
-        
+
         ; Set trigger for interrupt to be single edge
         MOV  r11, #0x5408
         MOVT r11, #0x4002          ; setting the address
         LDRW r4, [r11]             ; loading the data into r4
-        
+
         AND r4, r4, #0xfe          ; r4 &= #0xf7
-        
+
         MOV  r11, #0x5408
         MOVT r11, #0x4002          ; setting the address
         STRW r4, [r11]             ; storing the data from r4
-        
+
         ; Set the falling edge to be the trigger (triggers on press, not release)
         MOV  r11, #0x540c
         MOVT r11, #0x4002          ; setting the address
         LDRW r4, [r11]             ; loading the data into r4
-        
+
         AND r4, r4, #0xfe          ; r4 &= #0xf7
-        
+
         MOV  r11, #0x540c
         MOVT r11, #0x4002          ; setting the address
         STRW r4, [r11]             ; storing the data from r4
-        
+
         ; Enable the the interrupt
         MOV  r11, #0x5410
         MOVT r11, #0x4002          ; setting the address
         LDRW r4, [r11]             ; loading the data into r4
-        
+
         ORR r4, r4, #16          ; r4 |= #0x08
-        
+
         MOV  r11, #0x5410
         MOVT r11, #0x4002          ; setting the address
         STRW r4, [r11]             ; storing the data from r4
-        
-        ; Set processor to allow interrupts from GPIO port F 
+
+        ; Set processor to allow interrupts from GPIO port F
         MOV  r11, #0xe100
         MOVT r11, #0xe000          ; setting the address
         LDRW r4, [r11]             ; loading the data into r4
-        
+
         ORR r4, r4, #0x40000000    ; r4 |= #0x20000000
-        
+
         MOV  r11, #0xe100
         MOVT r11, #0xe000          ; setting the address
         STRW r4, [r11]             ; storing the data from r4
 
-        
+
         POP {lr, r4-r11}           ; restore saved regs
         MOV pc, lr                 ; return to source call             ; return to source call
 
@@ -349,7 +349,7 @@ timer_interrupt_init:
 
 read_from_push_btns:
         ; save registers we'll be using
-        PUSH {lr, r4}
+        PUSH {lr, r4-r11}
 
         ; setting regs we'll be using
         MOV r4, #0
@@ -359,6 +359,8 @@ read_from_push_btns:
         MOV r1, #0x7000
         MOVT r1, #0x4000
         LDRB r0, [r1, #0x3FC]
+        ; Set a counter variable
+        MOV r5, #0
 
         ; reversing the order of the bits we read from the GPIO
         AND r3, r0, #1
@@ -376,12 +378,12 @@ read_from_push_btns:
         AND r3, r0, #8
         LSR r3, r3, #1
         ORR r4, r4, r3
-        
+
         ; move the result into return register
         MOV r0, r4
 
         ; restore regs and return
-        POP {lr, r4}
+        POP {lr, r4-r11}
         MOV pc, lr
 
 illuminate_LEDs:
@@ -390,6 +392,32 @@ illuminate_LEDs:
         ; make sure we're not writing extra bits to the gpio
         AND  r0, r0, #0xF
 
+        CMP r0, #0
+        BEQ zero
+        CMP r0, #1
+        BEQ one
+        CMP r0, #2
+        BEQ two
+        CMP r0, #3
+        BEQ three
+        CMP r0, #4
+        BEQ four
+zero:
+        MOV r0, #0
+        B LEDS_done
+one:
+        MOV r0, #1
+        B LEDS_done
+two:
+        MOV r0, #3
+        B LEDS_done
+three:
+        MOV r0, #7
+        B LEDS_done
+four:
+        MOV r0, #15
+        B LEDS_done
+LEDS_done:
         ; write the bits for the LEDs to the gpio
         MOV r1, #0x5000
         MOVT r1, #0x4000
