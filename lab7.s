@@ -231,21 +231,22 @@ Timer_Handler:
 	BL output_character
 
 	; Calculate the next position of the ball
-	; Load x and y positions
-	; Add x and y delta to their current position
 	LDR r5, ptr_to_ballxPosition
 	LDRB r5, [r5]
 	LDR r6, ptr_to_ballyPosition
-	LDRB r6, [r6]					; Load current x and y position into r5 and r6 (don't change these registers, need them later)
+	LDRB r6, [r6]					; Load current x and y position into r5 and r6, DONT CHANGE THESE VALUES
 	LDR r7, ptr_to_xDelta
 	LDRSB r7, [r7]
 	LDR r8, ptr_to_yDelta
-	LDRSB r8, [r8]					; Load current x and y deltas into r7 and r8 (dont change these)
+	LDRSB r8, [r8]					; Load current x and y deltas into r7 and r8, DONT USE FOR ANYTHING OTHER THAN DELTAS
 	CMP r8, #2
-	IT EQ
+
+	IT EQ							; Could be source of error
 	LSR r8, r8, #1
+
 	ADD r9, r7, r5
-	ADD r10, r8, r6					; Add x and y postions to their respective deltas and store into r9 and r10
+	ADD r10, r8, r6					; Add x and y postions and deltas and store into r9 and r10
+	; r5, r6 = current x and y | r7, r8 = x and y deltas | 
 
 	; Initialize inputs to touch functions
 	MOV r2, r9
@@ -322,13 +323,13 @@ checkBottom:
 	MOV r7, #0x1
 	STRB r7, [r8]					; Reset y delta
 
+	; Clear the paddle row and reset its position
 	MOV r0, #1
 	MOV r1, #16
 	BL setCursorxy
-	BL wipe_row
+	BL wipe_row						; Set cursor position to the paddle row
 	MOV r2, #0
-	BL movePaddle
-
+	BL movePaddle					; Reset the paddle position
 
 	B printBall						; Jump to printBall as no other events possible
 
@@ -342,23 +343,19 @@ checkPaddle:
 
 	; Branch here after a bounce has occurred
 checkDoubleBounce:
-	; Recalculate position:
-	; LDR r7, ptr_to_xDelta				; Dont need to reload becuase edited in register an not overwritten
-	; LDRSB r7, [r7]
-	; LDR r8, ptr_to_yDelta
-	;  LDRSB r8, [r8]					; Load current x and y deltas into r7 and r8
 
-	; Commented out for now, will uncomment when all above functions work correctly
+	; Reload the current ball position and calculate new potential location
 	LDR r4, ptr_to_ballxPosition
 	LDRB r2, [r4]
 	LDR r4, ptr_to_ballyPosition
-	LDRB r3, [r4]
+	LDRB r3, [r4]					; Ball x and y into r2 and r3
 	ADD r2, r7, r2
-	ADD r3, r8, r3					; Add x and y postions to their respective deltas
+	ADD r3, r8, r3					; Calculate new positions by adding position and deltas
 
 	; Run all bounce checks again to see if there are any double bounces:
-	; Do the stuff here
+	; Do the second checks here##########################
 
+	; Now that bounce and double bounce are checked, save new deltas and positions to memory
 	; Store the deltas to memory
 	LDR r9, ptr_to_xDelta
 	STRB r7, [r9]
@@ -389,7 +386,6 @@ printBall:
 	MOV r0, r5
 	MOV r1, r6
 	BL setCursorxy					; Move cursor to new position
-
 	MOV r0, #0x6F
 	BL output_character				; Print a "o" character
     ; Update position based on direction stored in current_direction and switch_speed
@@ -404,6 +400,7 @@ printBall:
     ; Restore the registers
     POP {lr, r4-r11}
 	BX lr       	; Return
+
 
 wipe_row:
 	PUSH {lr}
@@ -430,6 +427,7 @@ wipe_row:
 	BL output_character
 	BL output_character
 	POP {pc}
+
 
 UART0_Handler:
 	; NEEDS TO MAINTAIN REGISTERS R4-R11, R0-R3;R12;LR;PC DONT NEED PRESERVATION
@@ -527,17 +525,6 @@ switchDone:
 	; Return to interrupted instruction
     BX lr
 
-timerOff:
-	PUSH {lr, r4-r11}
-	; Disable timer interruts
-    MOV r11, #0x0018
-    MOVT r11, #0x4003   ; load address
-    LDRW r4, [r11]      ; load value
-    ORR r4, r4, #0      ; write 0 to bit 0
-    STRW r4, [r11]      ; write back
-	POP {lr, r4-r11}
-	MOV pc, lr
-
 
 timerOn:
 	PUSH {lr, r4-r11}
@@ -549,6 +536,7 @@ timerOn:
     STRW r4, [r11]      ; write back
     POP {lr, r4-r11}
 	MOV pc, lr
+
 
 simple_read_character:
     PUSH {lr, r11}          ; store regs
@@ -563,12 +551,10 @@ simple_read_character:
 
 escapeSequence:
 	PUSH {lr}
-
 	MOV r0, #27
 	BL output_character
 	MOV r0, #0x5B
 	BL output_character
-
 	POP {pc}
 
 
@@ -618,6 +604,7 @@ noyshift:
 
 	POP {lr, r4-r11}
 	mov pc, lr
+
 
 ; Prints the boundries of the board
 printBoard:
@@ -674,6 +661,7 @@ printBottom:
 	POP {lr, r4-r11}
 	mov pc, lr
 
+
 ; r2 = -1, or 1
 movePaddle:
 	PUSH {lr, r4}
@@ -701,6 +689,7 @@ movePaddle:
 	BL output_character
 	POP {pc, r4}
 
+
 printPaddle:
 	PUSH {lr}
 	MOV r0, #0x3d
@@ -715,6 +704,7 @@ printPaddle:
 	BL output_character
 	POP {pc}
 
+
 printBrick:
 	PUSH {lr}
 	BL setBackground
@@ -725,6 +715,7 @@ printBrick:
 	MOV r0, #0x20
 	BL output_character
 	POP {pc}
+
 
 ; Prints the set amount of blocks in random colors
 displayBricks:
@@ -740,6 +731,7 @@ displayBricks:
 	MOV r7, #7
 	MOV r8, #3
 	MOV r5, #-1				; Set bit position to be 0
+
 
 displayBrickLoop:
 	; Check bit value
@@ -933,14 +925,9 @@ exitUpdateBallDelta:
 exitBallDeltaCheck:
 	POP {pc}
 
-; change ball velocity
-bounceBall:
-	PUSH {lr, r4-r11}
-	POP  {lr, r4-r11}	  ; Restore lr from stack
-	mov pc, lr
 
 ; set putty terminal color
-; 1..5 = red, green, yellow, blue, purple
+; 1...5 = red, green, yellow, blue, purple
 ; 7 = white
 setColor:
 	PUSH {lr, r4-r11}
@@ -978,6 +965,7 @@ setBackground:
 	POP  {lr, r4-r11}	  ; Restore lr from stack
 	mov pc, lr
 
+
 ; reset terminal color
 resetColor:
 
@@ -987,6 +975,7 @@ resetColor:
 	BL output_string
 
 	POP {pc}
+
 
 ; clears the board and resets all the bricks, the ball, and the paddle
 levelClear:
