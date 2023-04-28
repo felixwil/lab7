@@ -14,6 +14,7 @@
     .global int2string
 	.global illuminate_LEDs
 	.global read_character
+	.global read_from_push_btns
 
 	.global uart_interrupt_init
     .global gpio_interrupt_init
@@ -36,7 +37,7 @@ beginBackgroundEscape: .string 27, "[4", 0
 beginColorEscape: 	.string 27, "[3", 0
 endColorEscape:   	.string ";1;1m", 0
 resetColorString:   .string 27, "[0m", 0
-brickState:  		.word 0xeeeeee
+brickState:  		.word 0x0
 xDelta:  			.byte 0
 yDelta: 			.byte 1
 score: 				.word 0x0
@@ -80,7 +81,7 @@ ptr_to_pauseState:				.word pauseState
 ptr_to_scoreString:				.word scoreString
 ptr_to_topBottomBorder:			.word topBottomBorder
 ptr_to_resetColorString:   		.word resetColorString
-
+a
 lab7:
 	PUSH {lr}   ; Store lr to stack
 
@@ -90,24 +91,66 @@ lab7:
 	BL gpio_btn_and_LED_init
 	BL gpio_interrupt_init
 	BL resetColor
+	BL timer_interrupt_init
+	BL disable_timer
 
+restartGame:
 	; Clear the page
 	MOV r0, #0xc
 	BL output_character
 
 	; Print the game start instructions
+	MOV r0, #0
+	MOV r1, #0
+	BL setCursorxy
 	LDR r0, ptr_to_gameStartOne
 	BL output_string					; Print first instruction
 	MOV r0, #0
 	MOV r1, #1
 	BL setCursorxy					; Move cursor to next row
-	LDR r0, ptr_to_gameStartTwo		
+	LDR r0, ptr_to_gameStartTwo
 	BL output_string					; Print second instruction
 	MOV r0, #0
 	MOV r1, #2
 	BL setCursorxy					; Move cursor to next row
-	LDR r0, ptr_to_gameStartThree		
+	LDR r0, ptr_to_gameStartThree
 	BL output_string					; Print third instruction
+
+	; Wait for keypress and then read buttons pressed
+	BL read_character
+	BL read_from_push_btns
+	; r0 contains number of buttons pressed now, so put ones in needed spaces now
+	LDR r4, ptr_to_brickState
+	CMP r0, #2
+	BLT oneRow
+	BEQ twoRow
+	CMP r0, #3
+	BEQ threeRow
+	BGT fourRow
+
+	; This also serves as the catch in case no buttons are pressed
+oneRow:
+	; Insert one row of bricks into brickState
+	MOV r5, #0x7F
+	STR r5, [r4]
+	B rowsDone
+twoRow:
+	; Insert two rows of bricks into brickState
+	MOV r5, #0x3FFF
+	STR r5, [r4]
+	B rowsDone
+threeRow:
+	; Insert three rows of bricks into brickState
+	MOV r5, #0xFFFF
+	MOVT r5, #0x1F
+	STR r5, [r4]
+	B rowsDone
+fourRow:
+	; Insert one row of bricks into brickState
+	MOV r5, #0xFFFF
+	MOVT r5, #0xFFF
+	STR r5, [r4]
+rowsDone:
 
 	; Clear the page
 	MOV r0, #0xc
@@ -117,20 +160,25 @@ lab7:
 	BL printBoard
 	BL displayBricks
 
+	; Reset the color and paddle positions
 	BL resetColor
 	MOV r2, #0
 	BL movePaddle
 
+<<<<<<< HEAD
 	BL timer_interrupt_init
 	; Your code is placed here.
  	; Sample test code starts here
 
 resetLives:
 	; Clear the page
+=======
+>>>>>>> b3ee4c046767e6d466dc2f9c28c282ed66661fe8
 	; Reset lives to 4
 	MOV r8, #4
 	LDR r7, ptr_to_lives
 	STRB r8, [r7]
+<<<<<<< HEAD
 	MOV r0, #0xc
 	BL output_character
 
@@ -141,6 +189,8 @@ resetLives:
 	BL resetColor
 	MOV r2, #0
 	BL movePaddle
+=======
+>>>>>>> b3ee4c046767e6d466dc2f9c28c282ed66661fe8
 	; Turn timer back on
 	BL timerOn
 
@@ -156,7 +206,6 @@ mainloop:
 gameOver:
 	; Disable timer interruts
     BL disable_timer
-	; BL timerOff
 
 	; Print Game over, score, and options
 	MOV r0, #4
@@ -178,7 +227,7 @@ gameOver:
 
 	BL read_character
 	CMP r0, #0x63
-	BEQ resetLives						; Branch if user wants to continue
+	BEQ restartGame						; Branch if user wants to continue
 
 	POP {lr}	  ; Restore lr from stack
 	mov pc, lr
@@ -204,19 +253,26 @@ Timer_Handler:
 	BL output_character
 
 	; Calculate the next position of the ball
-	; Load x and y positions
-	; Add x and y delta to their current position
 	LDR r5, ptr_to_ballxPosition
 	LDRB r5, [r5]
 	LDR r6, ptr_to_ballyPosition
-	LDRB r6, [r6]					; Load current x and y position into r5 and r6 (don't change these registers, need them later)
+	LDRB r6, [r6]					; Load current x and y position into r5 and r6, DONT CHANGE THESE VALUES
 	LDR r7, ptr_to_xDelta
 	LDRSB r7, [r7]
 	LDR r8, ptr_to_yDelta
+<<<<<<< HEAD
 	LDRSB r8, [r8]					; Load current x and y deltas into r7 and r8 (dont change these)
+=======
+	LDRSB r8, [r8]					; Load current x and y deltas into r7 and r8, DONT USE FOR ANYTHING OTHER THAN DELTAS
+	CMP r8, #2
+
+	IT EQ							; Could be source of error
+	LSR r8, r8, #1
+>>>>>>> b3ee4c046767e6d466dc2f9c28c282ed66661fe8
 
 	ADD r9, r7, r5
-	ADD r10, r8, r6					; Add x and y postions to their respective deltas and store into r9 and r10
+	ADD r10, r8, r6					; Add x and y postions and deltas and store into r9 and r10
+	; r5, r6 = current x and y | r7, r8 = x and y deltas | 
 
 	; Initialize inputs to touch functions
 	MOV r2, r9
@@ -256,13 +312,29 @@ checkRoof:
 
 checkBrick:
 	; See if ball hits brick
-	; Call btouchBrick, if r1 = 1, update deltas, NEEDS TO KNOW IF HITTING VERTICAL OR HORIZONTAL FACE
+	; Call btouchBrick, if r1 = 1, update deltas
 	; Set brick state for that brick to 0, erase the brick, update score
+<<<<<<< HEAD
 	PUSH {r8}
 	CMP r8, #2
 	IT EQ
 	LSREQ r8, r8, #1
 	POP {r8}
+=======
+	BL btouchBrick
+	CMP r1, #1
+	BNE checkBottom					; If no touch, jump to next check
+
+	MOV r9, #-1
+	MULS r8, r8, r9					; Reverse y delta
+	; Set the hit brick's state to 0
+	; Take ball  x and y positions
+	; xpos * 3 gives line offset, next lowest y val
+	; set to 0 to indicate done
+	; print 3 spaces in that blocks position
+	; increment score by level value
+	B checkDoubleBounce				; Jump to checkDoubleBounce for if it double bounces
+>>>>>>> b3ee4c046767e6d466dc2f9c28c282ed66661fe8
 
 checkBottom:
 	; See if ball hits bottom
@@ -299,13 +371,13 @@ checkBottom:
 	MOV r7, #0x1
 	STRB r7, [r8]					; Reset y delta
 
+	; Clear the paddle row and reset its position
 	MOV r0, #1
 	MOV r1, #16
 	BL setCursorxy
-	BL wipe_row
+	BL wipe_row						; Set cursor position to the paddle row
 	MOV r2, #0
-	BL movePaddle
-
+	BL movePaddle					; Reset the paddle position
 
 	B printBall						; Jump to printBall as no other events possible
 
@@ -329,23 +401,19 @@ checkPaddle:
 
 	; Branch here after a bounce has occurred
 checkDoubleBounce:
-	; Recalculate position:
-	; LDR r7, ptr_to_xDelta				; Dont need to reload becuase edited in register an not overwritten
-	; LDRSB r7, [r7]
-	; LDR r8, ptr_to_yDelta
-	;  LDRSB r8, [r8]					; Load current x and y deltas into r7 and r8
 
-	; Commented out for now, will uncomment when all above functions work correctly
+	; Reload the current ball position and calculate new potential location
 	LDR r4, ptr_to_ballxPosition
 	LDRB r2, [r4]
 	LDR r4, ptr_to_ballyPosition
-	LDRB r3, [r4]
+	LDRB r3, [r4]					; Ball x and y into r2 and r3
 	ADD r2, r7, r2
-	ADD r3, r8, r3					; Add x and y postions to their respective deltas
+	ADD r3, r8, r3					; Calculate new positions by adding position and deltas
 
 	; Run all bounce checks again to see if there are any double bounces:
-	; Do the stuff here
+	; Do the second checks here##########################
 
+	; Now that bounce and double bounce are checked, save new deltas and positions to memory
 	; Store the deltas to memory
 	LDR r9, ptr_to_xDelta
 	STRB r7, [r9]
@@ -376,7 +444,6 @@ printBall:
 	MOV r0, r5
 	MOV r1, r6
 	BL setCursorxy					; Move cursor to new position
-
 	MOV r0, #0x6F
 	BL output_character				; Print a "o" character
     ; Update position based on direction stored in current_direction and switch_speed
@@ -391,6 +458,7 @@ printBall:
     ; Restore the registers
     POP {lr, r4-r11}
 	BX lr       	; Return
+
 
 wipe_row:
 	PUSH {lr}
@@ -417,6 +485,7 @@ wipe_row:
 	BL output_character
 	BL output_character
 	POP {pc}
+
 
 UART0_Handler:
 	; NEEDS TO MAINTAIN REGISTERS R4-R11, R0-R3;R12;LR;PC DONT NEED PRESERVATION
@@ -471,7 +540,7 @@ Switch_Handler:
     PUSH {lr, r4-r11}
 
     ; Clear the interrupt, using load -> or -> store to not overwrite other data
-    MOV  r11, #0x541c			
+    MOV  r11, #0x541c
     MOVT r11, #0x4002			; Address for interrupt
     LDRB r4, [r11]          	; Load interrupt value
     ORR r4, r4, #0x10          	; Set bit 4 to 1
@@ -489,7 +558,7 @@ Switch_Handler:
 	MOV r0, #7
 	MOV r1, #9
 	BL setCursorxy				; Set cursor to middle of the board
-	LDR r0, ptr_to_gameUnpaused 
+	LDR r0, ptr_to_gameUnpaused
 	BL output_string			; Print unpause spaces
 	BL timerOn					; Turn the timer back on
 	B switchDone				; Exit handler
@@ -514,17 +583,6 @@ switchDone:
 	; Return to interrupted instruction
     BX lr
 
-timerOff:
-	PUSH {lr, r4-r11}
-	; Disable timer interruts
-    MOV r11, #0x0018
-    MOVT r11, #0x4003   ; load address
-    LDRW r4, [r11]      ; load value
-    ORR r4, r4, #0      ; write 0 to bit 0
-    STRW r4, [r11]      ; write back
-	POP {lr, r4-r11}
-	MOV pc, lr
-
 
 timerOn:
 	PUSH {lr, r4-r11}
@@ -536,6 +594,7 @@ timerOn:
     STRW r4, [r11]      ; write back
     POP {lr, r4-r11}
 	MOV pc, lr
+
 
 simple_read_character:
     PUSH {lr, r11}          ; store regs
@@ -550,12 +609,10 @@ simple_read_character:
 
 escapeSequence:
 	PUSH {lr}
-
 	MOV r0, #27
 	BL output_character
 	MOV r0, #0x5B
 	BL output_character
-
 	POP {pc}
 
 
@@ -605,6 +662,7 @@ noyshift:
 
 	POP {lr, r4-r11}
 	mov pc, lr
+
 
 ; Prints the boundries of the board
 printBoard:
@@ -661,6 +719,7 @@ printBottom:
 	POP {lr, r4-r11}
 	mov pc, lr
 
+
 ; r2 = -1, or 1
 movePaddle:
 	PUSH {lr, r4}
@@ -688,6 +747,7 @@ movePaddle:
 	BL output_character
 	POP {pc, r4}
 
+
 printPaddle:
 	PUSH {lr}
 	MOV r0, #0x3d
@@ -702,6 +762,7 @@ printPaddle:
 	BL output_character
 	POP {pc}
 
+
 printBrick:
 	PUSH {lr}
 	BL setBackground
@@ -712,6 +773,7 @@ printBrick:
 	MOV r0, #0x20
 	BL output_character
 	POP {pc}
+
 
 ; Prints the set amount of blocks in random colors
 displayBricks:
@@ -727,6 +789,7 @@ displayBricks:
 	MOV r7, #7
 	MOV r8, #3
 	MOV r5, #-1				; Set bit position to be 0
+
 
 displayBrickLoop:
 	; Check bit value
@@ -775,6 +838,15 @@ setupForBounceChecks:
 ; return true/false if ball is on a brick
 ; x and y values in r2, r3, value returned in r1
 btouchBrick:
+	; Potential implementation:
+	; Get the y delta, if 2 then add one to y position
+	; Take x and y values, check which 'brick sector' they are in
+	; Load the brickState, check the bit value for that 'brick sector'
+	; If that bit value is 1, return 1 and exit
+	; If that bit value is 0, subtract one from y position
+	; Recalculate the 'brick sector'
+	; Check bit value for that 'brick sector'
+	; Return that value regardless of if its 1 or 0
 	PUSH {lr, r5, r6}
 	; return false if y is greater than 6 or equal to 1
 	CMP r3, #1 ; y == 1
@@ -912,14 +984,9 @@ exitUpdateBallDelta:
 exitBallDeltaCheck:
 	POP {pc}
 
-; change ball velocity
-bounceBall:
-	PUSH {lr, r4-r11}
-	POP  {lr, r4-r11}	  ; Restore lr from stack
-	mov pc, lr
 
 ; set putty terminal color
-; 1..5 = red, green, yellow, blue, purple
+; 1...5 = red, green, yellow, blue, purple
 ; 7 = white
 setColor:
 	PUSH {lr, r4-r11}
@@ -957,6 +1024,7 @@ setBackground:
 	POP  {lr, r4-r11}	  ; Restore lr from stack
 	mov pc, lr
 
+
 ; reset terminal color
 resetColor:
 
@@ -966,6 +1034,7 @@ resetColor:
 	BL output_string
 
 	POP {pc}
+
 
 ; clears the board and resets all the bricks, the ball, and the paddle
 levelClear:
