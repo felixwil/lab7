@@ -22,6 +22,7 @@
 	.global gpio_btn_and_LED_init
     .global disable_timer
 
+colorString:		.string "", 0
 uartresult:			.byte 0
 gameStartOne:		.string "Controls: use a and d keys to move the paddle right and left", 0
 gameStartTwo:		.string "Press and hold number of switches to choose the number of rows of bricks", 0
@@ -53,6 +54,7 @@ topBottomBorder:	.string "+---------------------+", 0
 
 ; Pointers to memory locations
 
+ptr_to_colorString:				.word colorString
 ptr_to_uartresult:				.word uartresult
 ptr_to_gameStartOne:			.word gameStartOne
 ptr_to_gameStartTwo:			.word gameStartTwo
@@ -81,7 +83,7 @@ ptr_to_pauseState:				.word pauseState
 ptr_to_scoreString:				.word scoreString
 ptr_to_topBottomBorder:			.word topBottomBorder
 ptr_to_resetColorString:   		.word resetColorString
-a
+
 lab7:
 	PUSH {lr}   ; Store lr to stack
 
@@ -165,32 +167,16 @@ rowsDone:
 	MOV r2, #0
 	BL movePaddle
 
-<<<<<<< HEAD
-	BL timer_interrupt_init
-	; Your code is placed here.
- 	; Sample test code starts here
-
-resetLives:
-	; Clear the page
-=======
->>>>>>> b3ee4c046767e6d466dc2f9c28c282ed66661fe8
 	; Reset lives to 4
 	MOV r8, #4
 	LDR r7, ptr_to_lives
 	STRB r8, [r7]
-<<<<<<< HEAD
 	MOV r0, #0xc
 	BL output_character
-
-	; Print the board and the bricks
-	BL printBoard
-	BL displayBricks
 
 	BL resetColor
 	MOV r2, #0
 	BL movePaddle
-=======
->>>>>>> b3ee4c046767e6d466dc2f9c28c282ed66661fe8
 	; Turn timer back on
 	BL timerOn
 
@@ -260,15 +246,11 @@ Timer_Handler:
 	LDR r7, ptr_to_xDelta
 	LDRSB r7, [r7]
 	LDR r8, ptr_to_yDelta
-<<<<<<< HEAD
-	LDRSB r8, [r8]					; Load current x and y deltas into r7 and r8 (dont change these)
-=======
 	LDRSB r8, [r8]					; Load current x and y deltas into r7 and r8, DONT USE FOR ANYTHING OTHER THAN DELTAS
 	CMP r8, #2
 
 	IT EQ							; Could be source of error
 	LSR r8, r8, #1
->>>>>>> b3ee4c046767e6d466dc2f9c28c282ed66661fe8
 
 	ADD r9, r7, r5
 	ADD r10, r8, r6					; Add x and y postions and deltas and store into r9 and r10
@@ -314,27 +296,21 @@ checkBrick:
 	; See if ball hits brick
 	; Call btouchBrick, if r1 = 1, update deltas
 	; Set brick state for that brick to 0, erase the brick, update score
-<<<<<<< HEAD
-	PUSH {r8}
-	CMP r8, #2
-	IT EQ
-	LSREQ r8, r8, #1
-	POP {r8}
-=======
 	BL btouchBrick
 	CMP r1, #1
 	BNE checkBottom					; If no touch, jump to next check
 
 	MOV r9, #-1
 	MULS r8, r8, r9					; Reverse y delta
-	; Set the hit brick's state to 0
+	; Set the hit brick's state to 0 
 	; Take ball  x and y positions
 	; xpos * 3 gives line offset, next lowest y val
 	; set to 0 to indicate done
-	; print 3 spaces in that blocks position
+	; print 3 spaces in that blocks position -> to be done in btouchbrick
+
 	; increment score by level value
+
 	B checkDoubleBounce				; Jump to checkDoubleBounce for if it double bounces
->>>>>>> b3ee4c046767e6d466dc2f9c28c282ed66661fe8
 
 checkBottom:
 	; See if ball hits bottom
@@ -1045,4 +1021,37 @@ levelClear:
 	; Print the side walls
 
 	; Print the lower boarder
+
+
+generateRandomColors:
+	PUSH {lr, r4-r11}
+	; Load the colors string
+	LDR r4, ptr_to_colorString
+
+	; Create a variable to loop over 28 times
+	MOV r5, #0
+	MOV r6, #0xE018
+	MOVT r6, #0xE000		; Load the SYSTICK address into r6
+	; Mask to remove bits 24-31
+	MOV r8, #0xFFFF
+	MOVT r8, #0xFF
+colorGenLoop:
+	; Read the value of the SYSTICK into r7
+	LDR r7, [r6]
+	; AND the value and mask to get just the SYSTICK value
+	AND r7, r7, r8
+	MOV r1, #5
+	; Take the modulo of that value with 5, result in r2
+	SDIV R2, R7, R1
+	MUL R2, R2, R1
+	SUB R2, R7, R2
+	# This number needs to be stored in the string now
+
+	; Increment the counter and check if done looping
+	ADD r5, r5, #1
+	CMP r5, #28
+	BLT colorGenLoop
+
+	POP {lr, r4-r11}
+	MOV pc, lr
 	.end
