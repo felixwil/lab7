@@ -178,8 +178,8 @@ resetLives:
 	MOV r8, #4
 	LDR r7, ptr_to_lives
 	STRB r8, [r7]
-	MOV r0, #0xc
-	BL output_character
+	; MOV r0, #0xc
+	; BL output_character
 
 	BL resetColor
 	MOV r2, #0
@@ -1072,11 +1072,13 @@ colorGenLoop:
 	AND r7, r7, r8
 	MOV r1, #5
 	; Take the modulo of that value with 5, result in r2
-	SDIV R2, R7, R1
-	MUL R2, R2, R1
-	SUB R2, R7, R2
-	# This number needs to be stored in the string now
-
+	SDIV r2, r7, r1
+	MUL r2, r2, r1
+	SUB r2, r7, r2
+	ADD r2, r2, #0x31 ; Add 0x3 to convert to ascii number, and 0x1 to match indexing for our colors
+	# Now store this value to memory and increment the write position
+	STRB r2, [r4] 
+	ADD r4, r4, #1			; Increments the write position by one byte
 	; Increment the counter and check if done looping
 	ADD r5, r5, #1
 	CMP r5, #28
