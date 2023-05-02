@@ -194,6 +194,13 @@ mainloop:
 	BL illuminate_LEDs
 	CMP r0, #0
 	BEQ gameOver 	; If no lives left, branch to game over
+
+	; Check brickState and see if level complete
+	ldr r5, ptr_to_brickState
+	CMP r5, #0
+	BEQ levelComplete
+
+	; Branch back to main loop
 	B mainloop
 
 gameOver:
@@ -221,6 +228,9 @@ gameOver:
 	BL read_character
 	CMP r0, #0x63
 	BEQ restartGame						; Branch if user wants to continue
+
+levelComplete:
+	; If level complete, increase level number, increase speed (if needed)
 
 	POP {lr}	  ; Restore lr from stack
 	mov pc, lr
