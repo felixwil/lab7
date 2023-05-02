@@ -167,16 +167,34 @@ rowsDone:
 	MOV r2, #0
 	BL movePaddle
 
+<<<<<<< HEAD
+=======
+	BL timer_interrupt_init
+	; Your code is placed here.
+ 	; Sample test code starts here
+
+resetLives:
+	; Clear the page
+
+>>>>>>> a7bea4605a8167fc50e453027f03431c1faaee15
 	; Reset lives to 4
 	MOV r8, #4
 	LDR r7, ptr_to_lives
 	STRB r8, [r7]
+<<<<<<< HEAD
+=======
+
+>>>>>>> a7bea4605a8167fc50e453027f03431c1faaee15
 	MOV r0, #0xc
 	BL output_character
 
 	BL resetColor
 	MOV r2, #0
 	BL movePaddle
+<<<<<<< HEAD
+=======
+
+>>>>>>> a7bea4605a8167fc50e453027f03431c1faaee15
 	; Turn timer back on
 	BL timerOn
 
@@ -296,6 +314,16 @@ checkBrick:
 	; See if ball hits brick
 	; Call btouchBrick, if r1 = 1, update deltas
 	; Set brick state for that brick to 0, erase the brick, update score
+<<<<<<< HEAD
+=======
+
+	;PUSH {r8}
+	;CMP r8, #2
+	;IT EQ
+	;LSREQ r8, r8, #1
+	;POP {r8}
+
+>>>>>>> a7bea4605a8167fc50e453027f03431c1faaee15
 	BL btouchBrick
 	CMP r1, #1
 	BNE checkBottom					; If no touch, jump to next check
@@ -726,6 +754,8 @@ movePaddle:
 
 printPaddle:
 	PUSH {lr}
+	MOV r0, #7
+	BL setColor
 	MOV r0, #0x3d
 	BL output_character
 	MOV r0, #0x3d
@@ -736,6 +766,7 @@ printPaddle:
 	BL output_character
 	MOV r0, #0x3d
 	BL output_character
+	BL resetColor
 	POP {pc}
 
 
@@ -823,28 +854,41 @@ btouchBrick:
 	; Recalculate the 'brick sector'
 	; Check bit value for that 'brick sector'
 	; Return that value regardless of if its 1 or 0
-	PUSH {lr, r5, r6}
+	PUSH {lr, r2-r11}
 	; return false if y is greater than 6 or equal to 1
 	CMP r3, #1 ; y == 1
 	BEQ btouchBrickfalse ; return false
 	CMP r3, #6 ; y > 6
 	BGT btouchBrickfalse ; return false
 	; shift brickState by x*7 places
-	ldr r1, ptr_to_brickState
-	ldrw r1, [r1]
+	ldr r4, ptr_to_brickState
+	ldr r1, [r4]
 	MOV r5, #3
-	DIV r6, r2, r5
+	SDIV r6, r2, r5 ; r5 = x/3
 	MOV r5, #7
-	MUL r5, r6, r5 ; r5 = x*7
-	LSR r1, r1, r5 ; brickstate >>= r5
+	SUB r3, r3, #2
+	MUL r6, r3, r5
+	ADD r6, r5, r6 ; r6 = x/3+(y-2)*7
+	LSR r1, r1, r6 ; brickstate >>= r6
+
 	AND r1, r1, #1 ; brickstate & 1
 
-	POP  {pc, r5, r6}
+	ldr r8, [r4]
+	MOV r7, #1
+	LSL r8, r8, r7
+	MVN r8, r8
+	AND r7, r7, r8
+	strw r7, [r4]
+	PUSH {r1}
+	BL displayBricks
+	POP {r1}
+
+	POP  {pc, r2-r11}
 
 btouchBrickfalse:
 
 	MOV r1, #0
-	POP  {pc, r5, r6}
+	POP  {pc, r2-r11}
 
 
 ; return true/false if ball is on a side
@@ -917,7 +961,7 @@ btouchPaddlefalse:
 ; and based on that value, (xD, yD) = (-1, 1), (0, 1), (1, 1) respectively
 updateBallDeltaForPaddleBounce:
 	PUSH {lr}
-	BL btouchPaddle
+	;BL btouchPaddle
 	CMP r1, #-1
 	BEQ exitUpdateBallDelta
 

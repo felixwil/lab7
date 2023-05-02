@@ -379,7 +379,6 @@ skipPress:
         CMP r6, #4
         BLT countPressedLoop
 
-<<<<<<< HEAD
         AND r3, r0, #2
         LSL r3, r3, #1
         ORR r4, r4, r3
@@ -392,8 +391,6 @@ skipPress:
         LSR r3, r3, #1
         ORR r4, r4, r3
 
-=======
->>>>>>> b3ee4c046767e6d466dc2f9c28c282ed66661fe8
         ; move the result into return register
         MOV r0, r5
 
