@@ -283,18 +283,18 @@ checkWall:
 checkRoof:
 	; See if ball hits roof
 	; Call btouchTop, if r = 1, update deltas
-	PUSH {r2, r3, r4, r8}
+	; PUSH {r2, r3, r4, r8}
 
-	CMP r8, #2
-	IT EQ
-	LSREQ r8, r8, #1
+	; CMP r8, #2
+	; IT EQ
+	; LSREQ r8, r8, #1
 
 	BL btouchTop
-	POP {r2, r3, r4, r8}
+	; POP {r2, r3, r4, r8}
 	CMP r1, #1
 	BNE checkBrick					; If no touch, continue to next check
 
-	MOV r9, #-1
+	MOV r9, #-1						; If touch:
 	MULS r8, r8, r9					; Reverse y delta
 
 	B checkDoubleBounce				; Jump to checkDoubleBounce for if it double bounces
@@ -306,7 +306,7 @@ checkBrick:
 
 	BL btouchBrick
 	CMP r1, #1
-	BNE checkBottom					; If no touch, jump to next check
+	BNE checkPaddle					; If no touch, jump to next check
 
 	MOV r9, #-1
 	MULS r8, r8, r9					; Reverse y delta
@@ -319,6 +319,24 @@ checkBrick:
 	; increment score by level value
 
 	B checkDoubleBounce				; Jump to checkDoubleBounce for if it double bounces
+
+checkPaddle:
+	; See if ball hits paddle
+	; Call btouchPaddle
+	; return -1 if ball not on paddle, else the position on the paddle
+	; which it is touching
+	PUSH {r8}
+	CMP r8, #-1
+	IT LT
+	LSRLT r8, r8, #1
+
+	BL btouchPaddle
+	POP {r8}
+	CMP r1, #-1
+	BEQ checkBottom
+
+	BL updateBallDeltaForPaddleBounce
+	B checkDoubleBounce
 
 checkBottom:
 	; See if ball hits bottom
@@ -364,24 +382,6 @@ checkBottom:
 	BL movePaddle					; Reset the paddle position
 
 	B printBall						; Jump to printBall as no other events possible
-
-checkPaddle:
-	; See if ball hits paddle
-	; Call btouchPaddle
-	; return -1 if ball not on paddle, else the position on the paddle
-	; which it is touching
-	PUSH {r8}
-	CMP r8, #-1
-	IT LT
-	LSRLT r8, r8, #1
-
-	BL btouchPaddle
-	POP {r8}
-	CMP r1, #-1
-	BEQ checkDoubleBounce
-
-	BL updateBallDeltaForPaddleBounce
-	B checkDoubleBounce
 
 	; Branch here after a bounce has occurred
 checkDoubleBounce:
@@ -924,7 +924,7 @@ btouchPaddle:
 	PUSH {lr}
 	; return true if y position = 16 and x < paddlepos or x > paddlepos+4
 	CMP r3, #16 ; y != 16
-	BNE btouchPaddlefalse ; return false
+	BLT btouchPaddlefalse ; return false
 
 	CMP r2, r4 ; x < paddlepos
 	BLT btouchPaddlefalse ; return false
@@ -1086,4 +1086,6 @@ colorGenLoop:
 
 	POP {lr, r4-r11}
 	MOV pc, lr
+
+
 	.end
