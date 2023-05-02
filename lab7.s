@@ -167,8 +167,6 @@ rowsDone:
 	MOV r2, #0
 	BL movePaddle
 
-<<<<<<< HEAD
-=======
 	BL timer_interrupt_init
 	; Your code is placed here.
  	; Sample test code starts here
@@ -176,25 +174,16 @@ rowsDone:
 resetLives:
 	; Clear the page
 
->>>>>>> a7bea4605a8167fc50e453027f03431c1faaee15
 	; Reset lives to 4
 	MOV r8, #4
 	LDR r7, ptr_to_lives
 	STRB r8, [r7]
-<<<<<<< HEAD
-=======
-
->>>>>>> a7bea4605a8167fc50e453027f03431c1faaee15
 	MOV r0, #0xc
 	BL output_character
 
 	BL resetColor
 	MOV r2, #0
 	BL movePaddle
-<<<<<<< HEAD
-=======
-
->>>>>>> a7bea4605a8167fc50e453027f03431c1faaee15
 	; Turn timer back on
 	BL timerOn
 
@@ -314,8 +303,6 @@ checkBrick:
 	; See if ball hits brick
 	; Call btouchBrick, if r1 = 1, update deltas
 	; Set brick state for that brick to 0, erase the brick, update score
-<<<<<<< HEAD
-=======
 
 	;PUSH {r8}
 	;CMP r8, #2
@@ -323,7 +310,6 @@ checkBrick:
 	;LSREQ r8, r8, #1
 	;POP {r8}
 
->>>>>>> a7bea4605a8167fc50e453027f03431c1faaee15
 	BL btouchBrick
 	CMP r1, #1
 	BNE checkBottom					; If no touch, jump to next check
