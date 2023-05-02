@@ -178,12 +178,12 @@ resetLives:
 	MOV r8, #4
 	LDR r7, ptr_to_lives
 	STRB r8, [r7]
-	; MOV r0, #0xc
-	; BL output_character
+
 
 	BL resetColor
 	MOV r2, #0
 	BL movePaddle
+
 	; Turn timer back on
 	BL timerOn
 
@@ -304,19 +304,13 @@ checkBrick:
 	; Call btouchBrick, if r1 = 1, update deltas
 	; Set brick state for that brick to 0, erase the brick, update score
 
-	;PUSH {r8}
-	;CMP r8, #2
-	;IT EQ
-	;LSREQ r8, r8, #1
-	;POP {r8}
-
 	BL btouchBrick
 	CMP r1, #1
 	BNE checkBottom					; If no touch, jump to next check
 
 	MOV r9, #-1
 	MULS r8, r8, r9					; Reverse y delta
-	; Set the hit brick's state to 0 
+	; Set the hit brick's state to 0
 	; Take ball  x and y positions
 	; xpos * 3 gives line offset, next lowest y val
 	; set to 0 to indicate done
@@ -423,6 +417,12 @@ printBall:
 	MOV r0, r5
 	MOV r1, r6
 	BL setCursorxy					; Move cursor to current ball position
+	BL resetColor
+	PUSH {r0}
+	ldr r0, ptr_to_ballColor
+	ldr r0, [r0]
+	BL setColor
+	POP {r0}
 	MOV r0, #0x20
 	BL output_character				; Print a " " character
 
@@ -854,7 +854,7 @@ btouchBrick:
 	MOV r5, #7
 	SUB r3, r3, #2
 	MUL r6, r3, r5
-	ADD r6, r5, r6 ; r6 = x/3+(y-2)*7
+	;ADD r6, r5, r6 ; r6 = x/3+(y-2)*7
 	LSR r1, r1, r6 ; brickstate >>= r6
 
 	AND r1, r1, #1 ; brickstate & 1
