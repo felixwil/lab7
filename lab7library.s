@@ -399,7 +399,7 @@ skipPress:
         MOV pc, lr
 
 illuminate_LEDs:
-        PUSH {lr, r0, r1} ; save regs
+        PUSH {lr} ; save regs
 
         ; make sure we're not writing extra bits to the gpio
         AND  r0, r0, #0xF
@@ -436,7 +436,7 @@ LEDS_done:
         STRB r0, [r1, #0x3FC]
 
         ; restore regs and return
-        POP {lr, r0, r1}
+        POP {lr}
         MOV pc, lr
 
 
