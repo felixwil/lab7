@@ -344,15 +344,32 @@ checkBrick:
 	CMP r1, #1
 	BNE checkPaddle					; If no touch, jump to next check
 
+	; If touch happens, reverse y direction and increment score
 	MOV r9, #-1
 	MULS r8, r8, r9					; Reverse y delta
-	; Set the hit brick's state to 0
-	; Take ball  x and y positions
-	; xpos * 3 gives line offset, next lowest y val
-	; set to 0 to indicate done
-	; print 3 spaces in that blocks position -> to be done in btouchbrick
-
 	; increment score by level value
+	LDR r11, ptr_to_level
+	LDRB r11, [r11]					; Load the level
+	LDR r10, ptr_to_score
+	LDRB r9, [r10]					; Load the current score
+	ADD r9, r9, r11					; Add level to the score
+	STRB r9, [r10]					; Store the score
+	
+	; Print the new score at the top of the screen
+	PUSH {r0, r1}					; Push these values so they arent overwritten
+	MOV r0, #6
+	MOV r1, #-1
+	BL setCursorxy					; Position the cursor
+	LDR r10, ptr_to_scoreString
+	BL output_string				; Print "Score: "
+	; Print the score value
+	MOV r0, r9						; Move the score into r0
+	LDR r1, ptr_to_scorePlaceholder	
+	BL int2string						; Convert score to string
+	LDR r0, ptr_to_scorePlaceholder
+	BL output_string					; Print the score
+	
+	POP {r0, r1}					; Restore the values
 
 	B checkDoubleBounce				; Jump to checkDoubleBounce for if it double bounces
 
