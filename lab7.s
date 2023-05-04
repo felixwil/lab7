@@ -22,7 +22,7 @@
 	.global gpio_btn_and_LED_init
     .global disable_timer
 
-colorString:		.string "", 0
+colorString:		.string "0000000000000000000000000000", 0
 uartresult:			.byte 0
 gameStartOne:		.string "Controls: use a and d keys to move the paddle right and left", 0
 gameStartTwo:		.string "Press and hold number of switches to choose the number of rows of bricks", 0
@@ -40,10 +40,10 @@ endColorEscape:   	.string ";1;1m", 0
 resetColorString:   .string 27, "[0m", 0
 brickState:  		.word 0x0
 xDelta:  			.byte 0
-yDelta: 			.byte 1
+yDelta: 			.byte 2
 score: 				.word 0x0
 ballxPosition:  	.byte 0x0B
-ballyPosition:  	.byte 0x08
+ballyPosition:  	.byte 0x09
 paddlePos: 			.byte 0x09
 ballColor:  		.byte 0x00
 lives:  			.byte 0x04
@@ -158,10 +158,6 @@ rowsDone:
 	MOV r0, #0xc
 	BL output_character
 
-	; Print the board and the bricks
-	BL printBoard
-	BL displayBricks
-
 	; Reset the color and paddle positions
 	BL resetColor
 	MOV r2, #0
@@ -186,12 +182,21 @@ resetLives:
 
 	; Turn timer back on
 	BL timerOn
+	; Print the board and the bricks
+	BL printBoard
+	BL displayBricks
+	BL displayBricks
+	BL displayBricks
+	BL generateRandomColors
+	BL displayBricks
 
 mainloop:
 	; Get lives and light up correct amount of LEDS
 	LDR r5, ptr_to_lives
 	LDRB r0, [r5]
+	PUSH {r0, r1}
 	BL illuminate_LEDs
+	POP {r0, r1}
 	CMP r0, #0
 	BEQ gameOver 	; If no lives left, branch to game over
 
@@ -264,10 +269,6 @@ Timer_Handler:
 	LDRSB r7, [r7]
 	LDR r8, ptr_to_yDelta
 	LDRSB r8, [r8]					; Load current x and y deltas into r7 and r8, DONT USE FOR ANYTHING OTHER THAN DELTAS
-	CMP r8, #2
-
-	IT EQ							; Could be source of error
-	LSR r8, r8, #1
 
 	ADD r9, r7, r5
 	ADD r10, r8, r6					; Add x and y postions and deltas and store into r9 and r10
@@ -293,14 +294,7 @@ checkWall:
 checkRoof:
 	; See if ball hits roof
 	; Call btouchTop, if r = 1, update deltas
-	; PUSH {r2, r3, r4, r8}
-
-	; CMP r8, #2
-	; IT EQ
-	; LSREQ r8, r8, #1
-
 	BL btouchTop
-	; POP {r2, r3, r4, r8}
 	CMP r1, #1
 	BNE checkBrick					; If no touch, continue to next check
 
@@ -314,7 +308,17 @@ checkBrick:
 	; Call btouchBrick, if r1 = 1, update deltas
 	; Set brick state for that brick to 0, erase the brick, update score
 
+	PUSH {r8, r3}
+	CMP r8, #2
+	ITT EQ
+	LSREQ r8, r8, #1
+	ADDEQ r3, r8, r6
+	CMP r8, #-1
+	ITT LT
+	ASREQ r8, r8, #1
+	ADDEQ r3, r8, r6
 	BL btouchBrick
+	POP {r8, r3}
 	CMP r1, #1
 	BNE checkPaddle					; If no touch, jump to next check
 
@@ -351,13 +355,7 @@ checkPaddle:
 checkBottom:
 	; See if ball hits bottom
 	; Call btouchBot, if r1 = 1 then lose life, reset paddle and ball position, and x,y delta's
-	PUSH {r8}
-	CMP r8, #2
-	IT EQ
-	LSREQ r8, r8, #1
-
 	BL btouchBot
-	POP {r8}
 	CMP r1, #1
 	BNE checkPaddle					; If no touch, jump to next check
 
@@ -392,6 +390,26 @@ checkBottom:
 	BL movePaddle					; Reset the paddle position
 
 	B printBall						; Jump to printBall as no other events possible
+
+checkPaddle:
+	; See if ball hits paddle
+	; Call btouchPaddle
+	; return -1 if ball not on paddle, else the position on the paddle
+	; which it is touching
+	PUSH {r8, r3}
+	CMP r8, #2
+	ITT GE
+	ASRGE r8, r8, #1
+
+	ADDGE r3, r8, r6
+
+	BL btouchPaddle
+	POP {r8, r3}
+	CMP r1, #-1
+	BEQ checkDoubleBounce
+
+	BL updateBallDeltaForPaddleBounce
+	B checkDoubleBounce
 
 	; Branch here after a bounce has occurred
 checkDoubleBounce:
@@ -731,6 +749,7 @@ movePaddle:
 	PUSH {r0}
 	SUB r0, r0, #1
 	BL setCursorxy
+	BL resetColor
 	POP {r0}
 	MOV r3, r0
 	CMP r3, #1
@@ -750,7 +769,8 @@ movePaddle:
 
 printPaddle:
 	PUSH {lr}
-	MOV r0, #7
+	ldr r0, ptr_to_ballColor
+	ldrb r0, [r0]
 	BL setColor
 	MOV r0, #0x3d
 	BL output_character
@@ -789,21 +809,25 @@ displayBricks:
 	ldr r0, ptr_to_brickState
 	LDRW r4, [r0]				; Loads brickState into r4
 
+	ldr r10, ptr_to_colorString
+
 	MOV r7, #7
-	MOV r8, #3
-	MOV r5, #-1				; Set bit position to be 0
+	MOV r8, #3 ; constants for multiplying
+	MOV r5, #-1
 
 
 displayBrickLoop:
+
 	; Check bit value
 	ADD r5, r5, #1
+	ADD r10, r10, #1
 	LSR r6, r4, r5
 	AND r6, r6, #1
 
 	CMP r5, #28
 	BEQ exitDisplayBrickLoop
 	CMP r6, #1
-	BNE displayBrickLoop
+	BNE clearBrick
 
 	SDIV r1, r5, r7
 	MUL r9, r1, r7
@@ -812,7 +836,7 @@ displayBrickLoop:
 	ADD r1, r1, #2
 	ADD r0, r0, #1
 	BL setCursorxy
-	MOV r0, #1 ; set color to red
+	ldrb r0, [r10]
 	BL printBrick
 	B displayBrickLoop
 
@@ -825,6 +849,15 @@ exitDisplayBrickLoop:
 	; Display brick
 
 	; Jump back to loop
+
+clearBrick:
+	BL resetColor
+	MOV r0, #0x20
+	BL output_character
+	BL output_character
+	BL output_character
+
+	B displayBrickLoop
 
 
 ; needs to be called before any usage of the btouch methods
@@ -858,23 +891,34 @@ btouchBrick:
 	BGT btouchBrickfalse ; return false
 	; shift brickState by x*7 places
 	ldr r4, ptr_to_brickState
-	ldr r1, [r4]
+	ldrw r1, [r4]
 	MOV r5, #3
-	SDIV r6, r2, r5 ; r5 = x/3
+	SDIV r6, r2, r5 ; r6 = x/3
 	MOV r5, #7
 	SUB r3, r3, #2
-	MUL r6, r3, r5
-	;ADD r6, r5, r6 ; r6 = x/3+(y-2)*7
+	MUL r5, r3, r5
+	ADD r6, r6, r5
+	; r6 = x/3+(y-2)*7
 	LSR r1, r1, r6 ; brickstate >>= r6
 
 	AND r1, r1, #1 ; brickstate & 1
 
+	CMP r1, #1
+	BNE btouchBrickfalse
+
 	ldr r8, [r4]
 	MOV r7, #1
-	LSL r8, r8, r7
-	MVN r8, r8
+	LSL r7, r7, r6
+	MVN r7, r7
 	AND r7, r7, r8
 	strw r7, [r4]
+
+	ldr r4, ptr_to_colorString
+	ADD r4, r4, r6
+	ldrb r5, [r4, #1]
+	ldr r4, ptr_to_ballColor
+	strb r5, [r4]
+
 	PUSH {r1}
 	BL displayBricks
 	POP {r1}
@@ -893,7 +937,7 @@ btouchSide:
 	PUSH {lr}
 	; return true if x is 0 or greater than 21
 	CMP r2, #0
-	BEQ btouchSidetrue
+	BLE btouchSidetrue
 	CMP r2, #21
 	BGT btouchSidetrue
 
@@ -1070,8 +1114,8 @@ generateRandomColors:
 
 	; Create a variable to loop over 28 times
 	MOV r5, #0
-	MOV r6, #0xE018
-	MOVT r6, #0xE000		; Load the SYSTICK address into r6
+	MOV r6, #0x0050
+	MOVT r6, #0x4003		; Load the SYSTICK address into r6
 	; Mask to remove bits 24-31
 	MOV r8, #0xFFFF
 	MOVT r8, #0xFF
@@ -1085,9 +1129,9 @@ colorGenLoop:
 	SDIV r2, r7, r1
 	MUL r2, r2, r1
 	SUB r2, r7, r2
-	ADD r2, r2, #0x31 ; Add 0x3 to convert to ascii number, and 0x1 to match indexing for our colors
-	# Now store this value to memory and increment the write position
-	STRB r2, [r4] 
+	ADD r2, r2, #0x1 ; Add 0x3 to convert to ascii number, and 0x1 to match indexing for our colors
+	; Now store this value to memory and increment the write position
+	STRB r2, [r4]
 	ADD r4, r4, #1			; Increments the write position by one byte
 	; Increment the counter and check if done looping
 	ADD r5, r5, #1
@@ -1096,6 +1140,4 @@ colorGenLoop:
 
 	POP {lr, r4-r11}
 	MOV pc, lr
-
-
 	.end
