@@ -40,12 +40,12 @@ endColorEscape:   	.string ";1;1m", 0
 resetColorString:   .string 27, "[0m", 0
 brickState:  		.word 0x0
 xDelta:  			.byte 0
-yDelta: 			.byte 2
+yDelta: 			.byte -2
 score: 				.word 0x0
 ballxPosition:  	.byte 0x0B
 ballyPosition:  	.byte 0x09
 paddlePos: 			.byte 0x09
-ballColor:  		.byte 0x00
+ballColor:  		.byte 0x07
 lives:  			.byte 0x04
 level:  			.byte 0x01
 pauseState:  		.byte 0x00
@@ -93,8 +93,8 @@ lab7:
 	BL gpio_btn_and_LED_init
 	BL gpio_interrupt_init
 	BL resetColor
-	BL timer_interrupt_init
-	BL disable_timer
+	;BL timer_interrupt_init
+	;BL disable_timer
 
 restartGame:
 	; Clear the page
@@ -174,7 +174,7 @@ nextLevel:
 	BL movePaddle
 
 	; Turn timer back on
-	BL timerOn
+	BL timer_interrupt_init
 	; Print the board and the bricks
 	BL printBoard
 	BL displayBricks
@@ -204,7 +204,7 @@ mainloop:
 levelComplete:
 	; If level complete, increase level number, increase speed (if needed)
 	LDR r5, ptr_to_level
-	LDTB r6, [r5]
+	LDRB r6, [r5]
 	ADD r6, r6, #0x1
 	STRB r6, [r5]						; Load, increment, and store level
 
@@ -215,12 +215,14 @@ levelComplete:
 	; Level:refreshRate => 1:0.2, 2:0.18, 3:0.16, 4:0.14
 	; Calculate new period, then multiply tick rate by that and save
 	SUB r6, r6, #1						; Subtract one from level
-	MUL r6, r6, #0.02					; Multiply 0.02 by level
-	MOV r7, #0.2
+	LSL r6, r6, #1					; Multiply 0.02 by level
+	MOV r7, #20
 	SUB r6, r7, r6						; Subtract that from 0.2 to get refresh period
 	MOV r7, #0x2400
 	MOVT r7, #0x00F4					; Move 16,000,000 into r7
 	MUL r6, r6, r7						; Multiply the refresh rate
+	MOV r7, #100
+	SDIV r6, r6, r7
 	
 	MOV r8, #0x0028
 	MOVT r8, #0x4003					; Load frequency address
@@ -342,7 +344,17 @@ checkBrick:
 	BL btouchBrick
 	POP {r8, r3}
 	CMP r1, #1
+	ITE EQ
+	BEQ touchingBrick
 	BNE checkPaddle					; If no touch, jump to next check
+
+	BL btouchBrick
+	CMP r1, #1
+	ITE EQ
+	BEQ touchingBrick
+	BNE checkPaddle
+
+touchingBrick:
 
 	; If touch happens, reverse y direction and increment score
 	MOV r9, #-1
@@ -357,11 +369,11 @@ checkBrick:
 
 	; Print the new score at the top of the screen
 	PUSH {r0, r1}					; Push these values so they arent overwritten
-	MOV r0, #6
+	MOV r0, #13
 	MOV r1, #-1
 	BL setCursorxy					; Position the cursor
-	LDR r10, ptr_to_scoreString
-	BL output_string				; Print "Score: "
+	;LDR r10, ptr_to_scoreString
+	;BL output_string				; Print "Score: "
 	; Print the score value
 	MOV r0, r9						; Move the score into r0
 	LDR r1, ptr_to_scorePlaceholder	
@@ -377,15 +389,27 @@ checkPaddle:
 	; Call btouchPaddle
 	; return -1 if ball not on paddle, else the position on the paddle
 	; which it is touching
-	PUSH {r8}
-	CMP r8, #-1
-	IT LT
-	LSRLT r8, r8, #1
+	PUSH {r8, r3}
+	CMP r8, #2
+	ITT GE
+	ASRGE r8, r8, #1
+
+	ADDGE r3, r8, r6
 
 	BL btouchPaddle
-	POP {r8}
+	POP {r8, r3}
 	CMP r1, #-1
+	ITE EQ
 	BEQ checkBottom
+	BNE touchingPaddle
+
+	BL btouchPaddle
+	CMP r1, #-1
+	ITE EQ
+	BEQ checkBottom
+	BNE touchingPaddle
+
+touchingPaddle:
 
 	BL updateBallDeltaForPaddleBounce
 	B checkDoubleBounce
@@ -395,7 +419,7 @@ checkBottom:
 	; Call btouchBot, if r1 = 1 then lose life, reset paddle and ball position, and x,y delta's
 	BL btouchBot
 	CMP r1, #1
-	BNE checkPaddle					; If no touch, jump to next check
+	BNE checkDoubleBounce					; If no touch, jump to next check
 
 	LDR r7, ptr_to_lives
 	LDRB r8, [r7]
@@ -428,26 +452,6 @@ checkBottom:
 	BL movePaddle					; Reset the paddle position
 
 	B printBall						; Jump to printBall as no other events possible
-
-checkPaddle:
-	; See if ball hits paddle
-	; Call btouchPaddle
-	; return -1 if ball not on paddle, else the position on the paddle
-	; which it is touching
-	PUSH {r8, r3}
-	CMP r8, #2
-	ITT GE
-	ASRGE r8, r8, #1
-
-	ADDGE r3, r8, r6
-
-	BL btouchPaddle
-	POP {r8, r3}
-	CMP r1, #-1
-	BEQ checkDoubleBounce
-
-	BL updateBallDeltaForPaddleBounce
-	B checkDoubleBounce
 
 	; Branch here after a bounce has occurred
 checkDoubleBounce:
@@ -927,6 +931,7 @@ btouchBrick:
 	BEQ btouchBrickfalse ; return false
 	CMP r3, #6 ; y > 6
 	BGT btouchBrickfalse ; return false
+	SUB r2, r2, #1
 	; shift brickState by x*7 places
 	ldr r4, ptr_to_brickState
 	ldrw r1, [r4]
@@ -1038,38 +1043,30 @@ btouchPaddlefalse:
 ; Alternatively, btouchPaddle can return 0 for no touch, 1 for left side, 2 for middle, 3 for right side
 ; and based on that value, (xD, yD) = (-1, 1), (0, 1), (1, 1) respectively
 updateBallDeltaForPaddleBounce:
-	PUSH {lr}
 	;BL btouchPaddle
 	CMP r1, #-1
 	BEQ exitUpdateBallDelta
 
-	CMP r1, #2
-	ITTT EQ
-	MOVEQ r7, #0
-	MOVEQ r8, #-1
-	BEQ exitUpdateBallDelta
-
-	CMP r7, #0
+	CMP r1, #2 ; what side of paddle are we on
 	ITE LT
-	MOVLT r7, #-1
-	MOVGE r7, #1
+	MOVLT r7, #1
+	MOVGE r7, #-1
 
-	CMP r1, #3
-	IT EQ
-	MOVEQ r1, #1
-	CMP r1, #4
-	IT EQ
-	MOVEQ r1, #0
+	MOV r8, #-1
 
-	CMP r1, #1
+	CMP r1, #1 ; hitting the second segment
 	ITT EQ
-	MOVEQ r8, #0xfe
-	BEQ exitUpdateBallDelta
+	MOVEQ r8, #0
+	SUBEQ r8, r8, #2
 
-	CMP r1, #0
+	CMP r1, #3 ; hitting the fourth segment
 	ITT EQ
-	MOVEQ r8, #-1
-	BEQ exitUpdateBallDelta
+	MOVEQ r8, #0
+	SUBEQ r8, r8, #2
+
+	CMP r1, #2 ; hitting the third segment
+	IT EQ
+	MOVEQ r7, #0
 
 exitUpdateBallDelta:
 	PUSH {r6}
@@ -1080,7 +1077,7 @@ exitUpdateBallDelta:
 	POP {r6}
 
 exitBallDeltaCheck:
-	POP {pc}
+	MOV pc, lr
 
 
 ; set putty terminal color
