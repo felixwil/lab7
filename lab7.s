@@ -106,17 +106,17 @@ restartGame:
 	MOV r1, #0
 	BL setCursorxy
 	LDR r0, ptr_to_gameStartOne
-	BL output_string					; Print first instruction
+	BL output_string				; Print first instruction
 	MOV r0, #0
 	MOV r1, #1
 	BL setCursorxy					; Move cursor to next row
 	LDR r0, ptr_to_gameStartTwo
-	BL output_string					; Print second instruction
+	BL output_string				; Print second instruction
 	MOV r0, #0
 	MOV r1, #2
 	BL setCursorxy					; Move cursor to next row
 	LDR r0, ptr_to_gameStartThree
-	BL output_string					; Print third instruction
+	BL output_string				; Print third instruction
 
 	; Wait for keypress and then read buttons pressed
 	BL read_character
@@ -135,25 +135,31 @@ oneRow:
 	; Insert one row of bricks into brickState
 	MOV r5, #0x7F
 	STR r5, [r4]
-	B rowsDone
+	B resetLives
 twoRow:
 	; Insert two rows of bricks into brickState
 	MOV r5, #0x3FFF
 	STR r5, [r4]
-	B rowsDone
+	B resetLives
 threeRow:
 	; Insert three rows of bricks into brickState
 	MOV r5, #0xFFFF
 	MOVT r5, #0x1F
 	STR r5, [r4]
-	B rowsDone
+	B resetLives
 fourRow:
 	; Insert one row of bricks into brickState
 	MOV r5, #0xFFFF
 	MOVT r5, #0xFFF
 	STR r5, [r4]
-rowsDone:
 
+resetLives:
+	; Reset lives to 4
+	MOV r8, #4
+	LDR r7, ptr_to_lives
+	STRB r8, [r7]
+
+nextLevel: 
 	; Clear the page
 	MOV r0, #0xc
 	BL output_character
@@ -162,19 +168,6 @@ rowsDone:
 	BL resetColor
 	MOV r2, #0
 	BL movePaddle
-
-	BL timer_interrupt_init
-	; Your code is placed here.
- 	; Sample test code starts here
-
-resetLives:
-	; Clear the page
-
-	; Reset lives to 4
-	MOV r8, #4
-	LDR r7, ptr_to_lives
-	STRB r8, [r7]
-
 
 	BL resetColor
 	MOV r2, #0
@@ -208,6 +201,35 @@ mainloop:
 	; Branch back to main loop
 	B mainloop
 
+levelComplete:
+	; If level complete, increase level number, increase speed (if needed)
+	LDR r5, ptr_to_level
+	LDTB r6, [r5]
+	ADD r6, r6, #0x1
+	STRB r6, [r5]						; Load, increment, and store level
+
+	; Check if refresh rate needs to be changed
+	CMP r6, #4
+	BGT afterRefresh 					; If past level 4 don't increment refresh rate anymore
+
+	; Level:refreshRate => 1:0.2, 2:0.18, 3:0.16, 4:0.14
+	; Calculate new period, then multiply tick rate by that and save
+	SUB r6, r6, #1						; Subtract one from level
+	MUL r6, r6, #0.02					; Multiply 0.02 by level
+	MOV r7, #0.2
+	SUB r6, r7, r6						; Subtract that from 0.2 to get refresh period
+	MOV r7, #0x2400
+	MOVT r7, #0x00F4					; Move 16,000,000 into r7
+	MUL r6, r6, r7						; Multiply the refresh rate
+	
+	MOV r8, #0x0028
+	MOVT r8, #0x4003					; Load frequency address
+	STRW r6, [r8]						; Store the new refresh rate
+
+afterRefresh:
+	; Branch to next level (reprint the screen and the rows)
+	B nextLevel
+
 gameOver:
 	; Disable timer interruts
     BL disable_timer
@@ -236,35 +258,6 @@ gameOver:
 	BL read_character
 	CMP r0, #0x63
 	BEQ restartGame						; Branch if user wants to continue
-
-levelComplete:
-	; If level complete, increase level number, increase speed (if needed)
-	LDR r5, ptr_to_level
-	LDTB r6, [r5]
-	ADD r6, r6, #0x1
-	STRB r6, [r5]						; Load, increment, and store level
-
-	; Check if refresh rate needs to be changed
-	CMP r6, #4
-	BGT afterRefresh 					; If past level 4 don't increment refresh rate anymore
-
-	; Level:refreshRate => 1:0.2, 2:0.18, 3:0.16, 4:0.14
-	; Calculate new period, then multiply tick rate by that and save
-	SUB r6, r6, #1						; Subtract one from level
-	MUL r6, r6, #0.02					; Multiply 0.02 by level
-	MOV r7, #0.2
-	SUB r6, r7, r6						; Subtract that from 0.2 to get refresh period
-	MOV r7, #0x2400
-	MOVT r7, #0x00F4					; Move 16,000,000 into r7
-	MUL r6, r6, r7						; Multiply the refresh rate
-	
-	MOV r8, #0x0028
-	MOVT r8, #0x4003					; Load frequency address
-	STRW r6, [r8]						; Store the new refresh rate
-
-afterRefresh:
-	; Branch to next level (reprint the screen and the rows)
-	; ##############################################################
 
 	POP {lr}	  ; Restore lr from stack
 	mov pc, lr
@@ -1125,17 +1118,7 @@ resetColor:
 	POP {pc}
 
 
-; clears the board and resets all the bricks, the ball, and the paddle
-levelClear:
-	PUSH {lr, r4-r11}
-	POP  {lr, r4-r11}	  ; Restore lr from stack
-	mov pc, lr
-
-	; Print the side walls
-
-	; Print the lower boarder
-
-
+; Generates random colors for the bricks
 generateRandomColors:
 	PUSH {lr, r4-r11}
 	; Load the colors string
