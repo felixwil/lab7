@@ -354,7 +354,7 @@ checkBrick:
 	LDRB r9, [r10]					; Load the current score
 	ADD r9, r9, r11					; Add level to the score
 	STRB r9, [r10]					; Store the score
-	
+
 	; Print the new score at the top of the screen
 	PUSH {r0, r1}					; Push these values so they arent overwritten
 	MOV r0, #6
@@ -368,7 +368,6 @@ checkBrick:
 	BL int2string						; Convert score to string
 	LDR r0, ptr_to_scorePlaceholder
 	BL output_string					; Print the score
-	
 	POP {r0, r1}					; Restore the values
 
 	B checkDoubleBounce				; Jump to checkDoubleBounce for if it double bounces
