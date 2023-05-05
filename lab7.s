@@ -13,6 +13,7 @@
 	.global output_string
     .global int2string
 	.global illuminate_LEDs
+	.global illuminate_RGB_LED
 	.global read_character
 	.global read_from_push_btns
 
@@ -38,9 +39,10 @@ beginBackgroundEscape: .string 27, "[4", 0
 beginColorEscape: 	.string 27, "[3", 0
 endColorEscape:   	.string ";1;1m", 0
 resetColorString:   .string 27, "[0m", 0
-brickState:  		.word 0x0
+brickState:  		.word 0x7f
+brickRows:			.byte 0x0
 xDelta:  			.byte 0
-yDelta: 			.byte -2
+yDelta: 			.byte 1
 score: 				.word 0x0
 ballxPosition:  	.byte 0x0B
 ballyPosition:  	.byte 0x09
@@ -48,12 +50,14 @@ paddlePos: 			.byte 0x09
 ballColor:  		.byte 0x07
 lives:  			.byte 0x04
 level:  			.byte 0x01
+bounces:  			.byte 0x00
 pauseState:  		.byte 0x00
 scoreString:		.string "Score: ", 0
 topBottomBorder:	.string "+---------------------+", 0
 
 ; Pointers to memory locations
 
+ptr_to_bounces:  				.word bounces
 ptr_to_colorString:				.word colorString
 ptr_to_uartresult:				.word uartresult
 ptr_to_gameStartOne:			.word gameStartOne
@@ -70,6 +74,7 @@ ptr_to_beginBackgroundEscape:	.word beginBackgroundEscape
 ptr_to_beginColorEscape:		.word beginColorEscape
 ptr_to_endColorEscape:			.word endColorEscape
 ptr_to_brickState:				.word brickState
+ptr_to_brickRows:				.word brickRows
 ptr_to_xDelta:					.word xDelta
 ptr_to_yDelta:					.word yDelta
 ptr_to_score:					.word score
@@ -101,6 +106,10 @@ restartGame:
 	MOV r0, #0xc
 	BL output_character
 
+	; Turn off RGB LED for when the game starts
+	MOV r0, #0
+	BL illuminate_RGB_LED
+
 	; Print the game start instructions
 	MOV r0, #0
 	MOV r1, #0
@@ -121,6 +130,8 @@ restartGame:
 	; Wait for keypress and then read buttons pressed
 	BL read_character
 	BL read_from_push_btns
+	LDR r5, ptr_to_brickRows
+	STRB r0, [r5]
 	; r0 contains number of buttons pressed now, so put ones in needed spaces now
 	LDR r4, ptr_to_brickState
 	CMP r0, #2
@@ -130,6 +141,10 @@ restartGame:
 	BEQ threeRow
 	BGT fourRow
 
+nextLevel:
+	LDR r4, ptr_to_brickState
+	ldr r5, ptr_to_brickRows
+	ldrb r0, [r5]
 	; This also serves as the catch in case no buttons are pressed
 oneRow:
 	; Insert one row of bricks into brickState
@@ -159,15 +174,24 @@ resetLives:
 	LDR r7, ptr_to_lives
 	STRB r8, [r7]
 
-nextLevel: 
 	; Clear the page
 	MOV r0, #0xc
 	BL output_character
 
 	; Reset the color and paddle positions
-	BL resetColor
-	MOV r2, #0
-	BL movePaddle
+	ldr r2, ptr_to_ballxPosition
+	MOV r3, #0xb
+	strb r3, [r2]
+	ldr r2, ptr_to_ballyPosition
+	MOV r3, #0x9
+	strb r3, [r2]
+	ldr r2, ptr_to_xDelta
+	MOV r3, #0x0
+	strb r3, [r2]
+	ldr r2, ptr_to_yDelta
+	MOV r3, #0x1
+	strb r3, [r2]
+
 
 	BL resetColor
 	MOV r2, #0
@@ -178,8 +202,8 @@ nextLevel:
 	; Print the board and the bricks
 	BL printBoard
 	BL displayBricks
-	BL displayBricks
-	BL displayBricks
+	BL displayBricks ; we are using arbitrary uart communication to add
+	BL displayBricks ; some unpredictable randomness
 	BL generateRandomColors
 	BL displayBricks
 
@@ -187,14 +211,19 @@ mainloop:
 	; Get lives and light up correct amount of LEDS
 	LDR r5, ptr_to_lives
 	LDRB r0, [r5]
+
+	; illuminate LEDs uses these regs not protected by 
+	; APCS so we need to store them
 	PUSH {r0, r1}
 	BL illuminate_LEDs
 	POP {r0, r1}
+
 	CMP r0, #0
 	BEQ gameOver 	; If no lives left, branch to game over
 
 	; Check brickState and see if level complete
 	ldr r5, ptr_to_brickState
+	ldrb r5, [r5]
 	CMP r5, #0
 	BEQ levelComplete
 
@@ -245,6 +274,7 @@ gameOver:
 
 	; Load the score into a string and print it to the screen
 	LDR r0, ptr_to_score
+	ldrb r0, [r0]
 	LDR r1, ptr_to_scorePlaceholder
 	BL int2string						; Convert score to string
 	LDR r0, ptr_to_scorePlaceholder
@@ -284,6 +314,11 @@ Timer_Handler:
 	MOV r0, #0x37 ; 7
 	BL output_character
 
+
+	MOV r7, #0
+	LDR r8, ptr_to_bounces
+	STRB r7, [r8]
+
 	; Calculate the next position of the ball
 	LDR r5, ptr_to_ballxPosition
 	LDRB r5, [r5]
@@ -304,9 +339,58 @@ Timer_Handler:
 	LDR r4, ptr_to_paddlePos
 	LDRB r4, [r4]					; Pass potential x, y and paddle positions to touch functions
 
+checkPaddle:
+	; See if ball hits paddle
+	; Call btouchPaddle
+	; return -1 if ball not on paddle, else the position on the paddle
+	; which it is touching
+
+	; if yDelta is 2, we need to check 2, and 1.
+	PUSH {r8, r3}
+	CMP r8, #2
+	ITT GE
+	ASRGE r8, r8, #1 ; dividing r8 by 2
+	ADDGE r3, r8, r6 ; readjusting r3 to match the adjusted delta
+	BL btouchPaddle
+	POP {r8, r3} ; restoring the unadjusted values after compare.
+
+	; btouchpaddle returns -1 if not touching
+	; this is using the comparison with the adjusted ydelta
+	CMP r1, #-1
+	IT NE
+	BNE touchingPaddle
+
+	; check for contact again, this time with
+	; the unadjusted ydelta
+	BL btouchPaddle
+	CMP r1, #-1
+	IT NE
+	BNE touchingPaddle
+
+	; we check one square below the ball for good measure.
+	; this catches some extra edge cases like when the ball
+	; contacts with the paddle and wall at the same time in the
+	; corner.
+	PUSH {r3, r6}
+	ADD r3, r6, #1
+	BL btouchPaddle
+	POP {r3, r6}
+
+	CMP r1, #-1
+	ITE EQ
+	BEQ checkWall
+	BNE touchingPaddle
+
+touchingPaddle:
+
+	; if we touched the paddle in any of the above cases, 
+	; update the deltas accordingly
+	BL updateBallDeltaForPaddleBounce
+	B checkDoubleBounce
+
 checkWall:
 	; See if ball hits a wall
-	; Call btouchSide, if r = 1, update deltas
+	; Call btouchSide, if r = 1, updatae deltas
 	BL btouchSide
 	CMP r1, #1
 	BNE checkRoof					; If no touch, continue to next check
@@ -332,27 +416,36 @@ checkBrick:
 	; Call btouchBrick, if r1 = 1, update deltas
 	; Set brick state for that brick to 0, erase the brick, update score
 
+	; btouchbrick returns 1 if brick contact has been made,
+	; else 0.
+	BL btouchBrick
+	CMP r1, #1
+	IT EQ
+	BEQ touchingBrick
+
+	; Checks for the if the ball's delta is 2.
+	; We aren't checking if the balls' delta is -2, because
+	; we initially thought it was impossible for a ball to contact with
+	; -2 ydelta until the last day.
 	PUSH {r8, r3}
 	CMP r8, #2
 	ITT EQ
 	LSREQ r8, r8, #1
 	ADDEQ r3, r8, r6
+
+	; all of these need to be LTs :(
 	CMP r8, #-1
-	ITT LT
+	ITT EQ
 	ASREQ r8, r8, #1
 	ADDEQ r3, r8, r6
-	BL btouchBrick
-	POP {r8, r3}
-	CMP r1, #1
-	ITE EQ
-	BEQ touchingBrick
-	BNE checkPaddle					; If no touch, jump to next check
 
 	BL btouchBrick
+	POP {r8, r3} ; restoring the unadjusted values after compare.
+
 	CMP r1, #1
 	ITE EQ
 	BEQ touchingBrick
-	BNE checkPaddle
+	BNE checkBottom					; If no touch, jump to next check
 
 touchingBrick:
 
@@ -383,36 +476,6 @@ touchingBrick:
 	POP {r0, r1}					; Restore the values
 
 	B checkDoubleBounce				; Jump to checkDoubleBounce for if it double bounces
-
-checkPaddle:
-	; See if ball hits paddle
-	; Call btouchPaddle
-	; return -1 if ball not on paddle, else the position on the paddle
-	; which it is touching
-	PUSH {r8, r3}
-	CMP r8, #2
-	ITT GE
-	ASRGE r8, r8, #1
-
-	ADDGE r3, r8, r6
-
-	BL btouchPaddle
-	POP {r8, r3}
-	CMP r1, #-1
-	ITE EQ
-	BEQ checkBottom
-	BNE touchingPaddle
-
-	BL btouchPaddle
-	CMP r1, #-1
-	ITE EQ
-	BEQ checkBottom
-	BNE touchingPaddle
-
-touchingPaddle:
-
-	BL updateBallDeltaForPaddleBounce
-	B checkDoubleBounce
 
 checkBottom:
 	; See if ball hits bottom
@@ -464,8 +527,20 @@ checkDoubleBounce:
 	ADD r2, r7, r2
 	ADD r3, r8, r3					; Calculate new positions by adding position and deltas
 
-	; Run all bounce checks again to see if there are any double bounces:
-	; Do the second checks here##########################
+ 	; just pushing to quickly mark whether we've
+	; already bounced or not ( or how many times )
+	; Not sure what registers are safe to use at this point, etc.
+	PUSH {r7, r8}
+	LDR r8, ptr_to_bounces
+	LDRB r7, [r8]
+	CMP r7, #2
+	ADD r7, r7, #1
+	STRB r7, [r8]
+	POP {r7, r8} ; restoring from memory increment
+
+	; If we haven't already, run the checks again.
+	IT LT
+	BLT checkPaddle ; going back to the top of all the checks
 
 	; Now that bounce and double bounce are checked, save new deltas and positions to memory
 	; Store the deltas to memory
@@ -488,11 +563,14 @@ printBall:
 	MOV r1, r6
 	BL setCursorxy					; Move cursor to current ball position
 	BL resetColor
+
+	; set color uses r0 so we need to store it.
 	PUSH {r0}
 	ldr r0, ptr_to_ballColor
 	ldr r0, [r0]
 	BL setColor
-	POP {r0}
+	POP {r0} ; restoring from setColor
+
 	MOV r0, #0x20
 	BL output_character				; Print a " " character
 
@@ -506,6 +584,7 @@ printBall:
 	BL setCursorxy					; Move cursor to new position
 	MOV r0, #0x6F
 	BL output_character				; Print a "o" character
+	BL resetColor
     ; Update position based on direction stored in current_direction and switch_speed
 
 	; restore saved cursor position
@@ -520,8 +599,12 @@ printBall:
 	BX lr       	; Return
 
 
+; this is only called when the ball falls through the bottom
+; and the game needs to be reset, so we don't have to clear the ball
+; at the bottom and/or the paddle by-position.
 wipe_row:
 	PUSH {lr}
+	; loop unrolling :D
 	MOV r0, #0x20
 	BL output_character
 	BL output_character
@@ -534,7 +617,7 @@ wipe_row:
 	BL output_character
 	BL output_character
 	BL output_character
-	BL output_character
+	BL output_character ; prints a space per column on the board.
 	BL output_character
 	BL output_character
 	BL output_character
@@ -562,8 +645,8 @@ UART0_Handler:
 	; Simple_read_character, store in r5 to return to lab5 later
 	BL simple_read_character
 
-	;   W
-	; A S D
+	;        W
+	;   A    S    D
 
 	;      0x77
 	; 0x61 0x73 0x64
@@ -581,11 +664,14 @@ dpressed:
 nonepressed:
 
 	; if r1 < 1 or r1 > 16
+	; not allowing the paddle to move if it would go past
+	; the edge of the board
 	CMP r1, #1
 	BLT nopaddlemove
 	CMP r1, #17
 	BGT nopaddlemove
 
+	; storing paddle position
 	STRB r1, [r2]
 	BL movePaddle
 nopaddlemove:
@@ -781,40 +867,59 @@ printBottom:
 
 
 ; r2 = -1, or 1
+; r2 is indicating the direction of movement
 movePaddle:
 	PUSH {lr, r4}
 
-	MOV r1, #16
-	MOV r4, #6
+	MOV r1, #16 ; these appear to not be used
+	MOV r4, #6  ; these appear to not be used
+	; but I'm not removing without being able to test.
+
 	LDR r0, ptr_to_paddlePos
 	LDRB r0, [r0]
-	PUSH {r0}
+
+	PUSH {r0} ; setCursoryxy needs to be adjusted by 1 x position
 	SUB r0, r0, #1
 	BL setCursorxy
 	BL resetColor
 	POP {r0}
+	; we have to make sure we clear or print the necessary
+	; characters at the left and right sides of the paddle.
+	; ie: if it's on an edge, we need to print an edge character instead
+	; of a space, for safety.
+
+ 	; output_character uses r0 so we have to do a slight
+	; register spill for the following
 	MOV r3, r0
-	CMP r3, #1
+
+	; printing the left edge of the paddle
+	CMP r3, #1 ; left edge of the board
 	ITE EQ
-	MOVEQ r0, #0x7c
-	MOVNE r0, #0x20
+	MOVEQ r0, #0x7c ; the "|" edge character
+	MOVNE r0, #0x20 ; space
 	BL output_character
 	ADD r0, r3, r2
-	BL printPaddle
-	CMP r3, #17
+	BL printPaddle ; just print 5 gray "="s
+
+	; printing the right edge of the paddle
+	CMP r3, #17 ; right edge of the board
 	ITE EQ
-	MOVEQ r0, #0x7c
-	MOVNE r0, #0x20
+	MOVEQ r0, #0x7c ; the "|" edge character
+	MOVNE r0, #0x20 ; space
 	BL output_character
+
+	; exiting movepaddle
 	POP {pc, r4}
 
 
+; pretty self explanatory
+; printing 5 gray "="s
+; I guess we didn't need to MOV r0, #0x3d each time but oh well.
 printPaddle:
 	PUSH {lr}
-	ldr r0, ptr_to_ballColor
-	ldrb r0, [r0]
+	MOV r0, #0 ; 0 is gray
 	BL setColor
-	MOV r0, #0x3d
+	MOV r0, #0x3d ; "="
 	BL output_character
 	MOV r0, #0x3d
 	BL output_character
@@ -827,11 +932,14 @@ printPaddle:
 	BL resetColor
 	POP {pc}
 
-
+; just print 3 spaces in the desired color.
+; r0 needs to already be set to the needed color
+; outside of this, in preparation for set_background
+; I guess we didn't need to MOV r0, #0x3d each time but oh well.
 printBrick:
 	PUSH {lr}
 	BL setBackground
-	MOV r0, #0x20
+	MOV r0, #0x20 ; " "
 	BL output_character
 	MOV r0, #0x20
 	BL output_character
@@ -843,42 +951,58 @@ printBrick:
 ; Prints the set amount of blocks in random colors
 displayBricks:
 	PUSH {lr, r4-r11}
+	; setting the cursor to the upperleftmost brick
 	MOV r0, #1
 	MOV r1, #2
 	BL setCursorxy
 
 	; Get the brick state
+	; Brick state contains the state of each brick (on/off),
+	; as 32 bits.  (in reality only 28 are used)
+	; this makes looping over it easy since we can just shift it.
 	ldr r0, ptr_to_brickState
 	LDRW r4, [r0]				; Loads brickState into r4
 
-	ldr r10, ptr_to_colorString
+	ldr r10, ptr_to_colorString ; each byte is a color number
 
 	MOV r7, #7
-	MOV r8, #3 ; constants for multiplying
+	MOV r8, #3 ; constants for multiplying in-loop
 	MOV r5, #-1
-
+	; we're adding 1 immediately so this is effectively
+	; starting at 0
 
 displayBrickLoop:
 
 	; Check bit value
-	ADD r5, r5, #1
-	ADD r10, r10, #1
-	LSR r6, r4, r5
-	AND r6, r6, #1
+	ADD r5, r5, #1 ; adding one to our iterator "i"
+	ADD r10, r10, #1 ; incrementing our colorString pointer
+	LSR r6, r4, r5 ; incrementing/shifting the brickState value
+	AND r6, r6, #1 ; getting the first bit of the brickState.
 
-	CMP r5, #28
+	CMP r5, #28 ; If i == 28, we're done.
 	BEQ exitDisplayBrickLoop
-	CMP r6, #1
-	BNE clearBrick
 
+	; we need to do i mod 7, because there are 7 bricks per row.
+	; This gives us the x value of the brick we're currently
+	; looking at.
 	SDIV r1, r5, r7
 	MUL r9, r1, r7
 	SUB r0, r5, r9
+	; store the result in r0
+
+	; we need to multiply the calculated x value by 3, because
+	; each brick takes up 3 spaces.
 	MUL r0, r0, r8
+
+	; we need to shift the cursor a bit because the bricks don't
+	; start at 0, 0
 	ADD r1, r1, #2
 	ADD r0, r0, #1
 	BL setCursorxy
+
 	ldrb r0, [r10]
+	CMP r6, #1
+	BNE clearBrick
 	BL printBrick
 	B displayBrickLoop
 
@@ -903,6 +1027,7 @@ clearBrick:
 
 
 ; needs to be called before any usage of the btouch methods
+; not actually used.
 setupForBounceChecks:
 	PUSH {lr}
 
@@ -939,29 +1064,69 @@ btouchBrick:
 	SDIV r6, r2, r5 ; r6 = x/3
 	MOV r5, #7
 	SUB r3, r3, #2
+	; basically just the mathematical inverse of the calculations in 
+	; displayBricks.  Instead of converting an index to 2d coords,
+	; we're converting 2d coords to an index
 	MUL r5, r3, r5
 	ADD r6, r6, r5
 	; r6 = x/3+(y-2)*7
+	; shifting the brickState by said index
 	LSR r1, r1, r6 ; brickstate >>= r6
 
 	AND r1, r1, #1 ; brickstate & 1
 
+	; If we didn't touch a brick, return 0 in r0
 	CMP r1, #1
 	BNE btouchBrickfalse
 
+	; The next few chunks are to handle the actual touching of a brick.
+	; Best practice would have this be put in another subroutine.
+
+	; we're loading a copy of the brick state and shifting a 
+	; 1 to the right position to select that bit, so we can clear it.
 	ldr r8, [r4]
 	MOV r7, #1
-	LSL r7, r7, r6
-	MVN r7, r7
-	AND r7, r7, r8
-	strw r7, [r4]
+	LSL r7, r7, r6 ; shifting by the calculated index
+	MVN r7, r7     ; inverting
+	AND r7, r7, r8 ; clearing
+	strw r7, [r4]  ; storing the changes
+	; BFC doesn't accept a reg as the index only immediates, so we
+	; could not use that for the above.
 
+	; copying the brick color into the ball color
 	ldr r4, ptr_to_colorString
 	ADD r4, r4, r6
 	ldrb r5, [r4, #1]
 	ldr r4, ptr_to_ballColor
 	strb r5, [r4]
 
+	; Set the rgb LED colora
+	; 1...5 = red, green, yellow, blue, purple
+	PUSH {r0}			; Push r0 so we can use in illuminate_RGB_LED
+	CMP r5, #1
+	IT EQ
+	MOVEQ r0, #1			; Set red
+
+	CMP r5, #2
+	IT EQ
+	MOVEQ r0, #4			; Set green
+
+	CMP r5, #3
+	IT EQ
+	MOVEQ r0, #5			; Set yellow
+
+	CMP r5, #4
+	IT EQ
+	MOVEQ r0, #2			; Set blue
+
+	CMP r5, #5
+	IT EQ
+	MOVEQ r0, #3			; Set purple
+
+	BL illuminate_RGB_LED		; Branch to illuminate_RGB_LED
+	POP {r0}
+
+	; re-displaying all the bricks to apply the changes.
 	PUSH {r1}
 	BL displayBricks
 	POP {r1}
@@ -970,6 +1135,7 @@ btouchBrick:
 
 btouchBrickfalse:
 
+	; returning 0
 	MOV r1, #0
 	POP  {pc, r2-r11}
 
@@ -1086,16 +1252,20 @@ exitBallDeltaCheck:
 setColor:
 	PUSH {lr, r4-r11}
 
+	; output string is using r0 so we need to store it
 	PUSH {r0}
 	ldr r0, ptr_to_beginColorEscape
 	BL output_string
 	POP {r0}
-	ADD r0, r0, #0x30
+	ADD r0, r0, #0x30 ; converting from byte to number character
 	BL output_character
+
 	PUSH {r0}
 	ldr r0, ptr_to_endColorEscape
 	BL output_string
 	POP {r0}
+
+ 	; reversing the change we made to r0 earlier to preserve
 	SUB r0, r0, #0x30
 
 	POP  {lr, r4-r11}	  ; Restore lr from stack
@@ -1104,16 +1274,20 @@ setColor:
 setBackground:
 	PUSH {lr, r4-r11}
 
+	; output string is using r0 so we need to store it
 	PUSH {r0}
 	ldr r0, ptr_to_beginBackgroundEscape
 	BL output_string
 	POP {r0}
-	ADD r0, r0, #0x30
+	ADD r0, r0, #0x30 ; converting from byte to number character
 	BL output_character
+
 	PUSH {r0}
 	ldr r0, ptr_to_endColorEscape
 	BL output_string
 	POP {r0}
+
+	; reversing the change we made to r0 earlier to preserve
 	SUB r0, r0, #0x30
 
 	POP  {lr, r4-r11}	  ; Restore lr from stack

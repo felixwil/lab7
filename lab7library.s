@@ -319,8 +319,8 @@ timer_interrupt_init:
     ; Set up interval period
     MOV r11, #0x0028
     MOVT r11, #0x4003   ; load address
-    MOV r4, #0x2400
-    MOVT r4, #0x0064    ; load frequency
+    MOV r4, #0xD400
+    MOVT r4, #0x0030    ; load frequency
     STRW r4, [r11]      ; store frequency
 
     ; Enable timer to interrupt processor
@@ -440,6 +440,33 @@ LEDS_done:
         MOV pc, lr
 
 
+illuminate_RGB_LED:
+        PUSH {lr, r1, r2} ; save regs
+
+        ; make sure we're not writing extra bits
+        AND  r0, r0, #0x7
+
+        ; shift left once because there's an extra bit
+        ; at the beginning of the port
+        LSL r0, r0, #0x1
+
+        ; load the value from the port
+        ; since it contains both inputs and outputs wee don't
+        ; want to overwrite it
+        MOV r1, #0x5000
+        MOVT r1, #0x4002
+        LDRB r2, [r1]
+
+        ; clear the bits and set them
+        BFC r2, #0x1, #0x3
+        ORR r0, r0, r2
+        ; write the result back to the port
+        STRB r0, [r1, #0x3FC]
+
+        POP {lr, r1, r2} ; restore regs and return
+        MOV pc, lr
+
+
 output_character:
         PUSH {lr, r4-r11}   ; Store register lr on stack
 
@@ -521,5 +548,6 @@ nextplace:
 
         POP {lr, r4-r6}
         mov pc, lr
+
 
         .end
